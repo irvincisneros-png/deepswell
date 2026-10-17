@@ -82,7 +82,7 @@ export const pelagic = {
   heightAt, colorAt, reefiness,
   bounds: { xMin: -90, xMax: 90, zMin: -90, zMax: 90 },
   water: {
-    shafts: 0.6,
+    shafts: 0.35,
     absorb: [0.26, 0.05, 0.022], fog: 0x0c4f8e, fogDeep: 0x041d40, fogDensity: 0.024, fogDepthScale: 40,
     shallow: 0x0e5e9e, mid: 0x0b4f8a, deep: 0x05274f, caustics: 0.6,
     skyTop: 0x1e66c8, skyHorizon: 0xb8daf2, sun: [0.4, 0.8, -0.4], sunIntensity: 2.7,

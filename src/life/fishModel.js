@@ -180,7 +180,8 @@ export function buildFish(look) {
     const wing = look.pecWing ?? 0;
     addFin(
       k => [bx - k * pecL * 0.25, by + (k - 0.5) * pecL * 0.35, wz],
-      k => [bx - pecL * (0.6 + 0.3 * k) - wing * pecL * 0.4, by + (k - 0.5) * pecL * 0.35 - pecL * 0.25 - wing * pecL * 0.2, wz + side * pecL * (0.35 + wing * 1.1)],
+      // Swept, tapering fin: the trailing edge is shorter than the base and the tip points back toward the tail.
+      k => { const tipK = 1 - k; return [bx - pecL * (0.45 + 0.55 * k) - wing * pecL * (0.25 + 0.35 * k), by + (k - 0.5) * pecL * 0.12 - pecL * 0.2 - wing * pecL * 0.15, wz + side * pecL * (0.3 + wing * 1.05) * (0.45 + 0.55 * tipK)]; },
       4, 0.75, k => t0);
   }
   const geo = new THREE.BufferGeometry();
