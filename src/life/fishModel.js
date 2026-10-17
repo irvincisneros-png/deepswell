@@ -15,6 +15,23 @@ function bodyProfile(t, look) {
   return ped + (1 - ped) * base;
 }
 
+/** Emissive (glow) map for bioluminescent species: look.paint.glow(u, s) -> 0..1 */
+function paintGlow(look, W = 256, H = 256) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d'); const img = ctx.createImageData(W, H);
+  const gc = look.glowColor ?? [0.4, 0.8, 1.0];
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const u = (px + 0.5) / W, v = (py + 0.5) / H;
+    let g = 0;
+    if (v < 0.75) { const phi = (v / 0.75) * TAU; g = look.paint.glow(u, Math.cos(phi), 'body'); }
+    else g = look.paint.glowFin ? look.paint.glowFin(u) : 0;
+    const i = (py * W + px) * 4;
+    img.data[i] = gc[0] * g * 255; img.data[i + 1] = gc[1] * g * 255; img.data[i + 2] = gc[2] * g * 255; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
 /** Fill a canvas skin. painter(u, s, part, f) returns [r,g,b] 0..1. */
 function paintSkin(look, W = 512, H = 512) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
@@ -126,8 +143,14 @@ export function buildFish(look) {
       k => { const t = from + (to - from) * k; return [bodyX(t) - height * L * 0.3 * k, -halfH(t) * 0.9 - height * L * Math.sin(Math.PI * k) ** 0.6, 0]; },
       8, 0.25, k => from + (to - from) * k);
   }
-  // Caudal fin
-  {
+  // Caudal fin (vertical for fish/sharks; horizontal flukes for marine mammals)
+  if (look.tail === 'fluke') {
+    const span = (look.tailSpan ?? 1) * L * 0.14, tl = tailFrac * L, xb = x0 + 0.005;
+    addFin(
+      k => [xb, 0, (k - 0.5) * width * 0.25],
+      k => { const z = (k - 0.5) * 2; return [xb - tl * (0.35 + 0.65 * Math.pow(Math.abs(z), 0.7)) + (Math.abs(z) < 0.12 ? tl * 0.15 : 0), 0, z * span]; },
+      12, 0.5, k => 0.03);
+  } else if (look.tail !== 'none') {
     const tail = look.tail ?? 'forked';
     const span = (look.tailSpan ?? 1) * depth * 0.55 + L * 0.05;
     const tl = tailFrac * L;
@@ -165,7 +188,7 @@ export function buildFish(look) {
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.setIndex(idx);
   geo.computeVertexNormals();
-  return { geometry: geo, texture: paintSkin(look), length: L };
+  return { geometry: geo, texture: paintSkin(look), emissive: look.paint.glow ? paintGlow(look) : null, length: L };
 }
 
 /** Manta / stingray: flat disc in the xz plane, head +x. */

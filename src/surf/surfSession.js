@@ -244,9 +244,17 @@ export class SurfSession {
       const R = this.ride;
       const travel = new THREE.Vector3(-Math.cos(R.theta * 0.5), 0, -Math.sin(R.theta * 0.5) * 0.5).normalize();
       const tube = this.face && this.face.curl > 0.55 && this.face.d > -6;
-      const back = tube ? 3.0 : 4.6, up = tube ? 0.9 : 1.5;
-      want = p.clone().addScaledVector(travel, -back).add(new THREE.Vector3(0, up, tube ? 0.7 : 2.2));
-      look = p.clone().addScaledVector(travel, 6).add(new THREE.Vector3(0, 0.7, tube ? 0 : -1.0));
+      // Film from the open face side (shoreward), slightly behind: the rider stays in front of the wave wall,
+      // never hidden behind the breaking whitewater.
+      const back = tube ? 3.0 : 3.4, up = tube ? 0.9 : 1.9;
+      want = p.clone().addScaledVector(travel, -back).add(new THREE.Vector3(0, up, tube ? 0.8 : 4.2));
+      look = p.clone().addScaledVector(travel, 4.5).add(new THREE.Vector3(0, 0.8, tube ? 0 : -1.2));
+      // Line-of-sight check against the wave surface: lift the camera if the water would block the view.
+      for (let i = 1; i <= 6; i++) {
+        const q = want.clone().lerp(p, i / 7);
+        const h = this.waterHeight(q.x, q.z, this.t) + 0.35;
+        if (q.y < h) want.y += (h - q.y) * (7 / (7 - i));
+      }
     } else if (this.state === 'wipeout') {
       want = p.clone().add(new THREE.Vector3(2, 1.2, 4)); look = p.clone();
     } else {

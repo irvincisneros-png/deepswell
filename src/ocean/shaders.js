@@ -77,7 +77,7 @@ export function patchUnderwater(material, opts = {}) {
       deform += `
         float tailT = clamp((-transformed.x / uSwimLen) + 0.35, 0.0, 1.3);
         float wv = sin(aSwim.x - transformed.x * ${(opts.waveK ?? 6.0).toFixed(2)} / uSwimLen);
-        transformed.z += wv * tailT * tailT * aSwim.y * 0.12 * uSwimLen;
+        ${opts.vertical ? 'transformed.y' : 'transformed.z'} += wv * tailT * tailT * aSwim.y * ${opts.vertical ? '0.08' : '0.12'} * uSwimLen;
       `;
       if (opts.flap) {
         // Rays: wings (|z| large) flap vertically.
@@ -86,6 +86,19 @@ export function patchUnderwater(material, opts = {}) {
           transformed.y += sin(aSwim.x * 0.5 - span * 1.4) * span * span * aSwim.y * 0.55 * uSwimLen;
         `;
       }
+    }
+    if (opts.pulse) {
+      // Jellies: the bell rhythmically contracts (narrower + taller), arms follow.
+      deform += `
+        float pz = sin(uTime * 2.2 + (modelMatrix[3].x + modelMatrix[3].z) * 3.0);
+        #ifdef USE_INSTANCING
+          pz = sin(uTime * 2.2 + (instanceMatrix[3].x * 1.3 + instanceMatrix[3].z) * 3.0);
+        #endif
+        float bellK = smoothstep(-0.25, 0.1, transformed.y);
+        transformed.xz *= 1.0 - 0.12 * pz * bellK;
+        transformed.y += 0.03 * pz * bellK;
+        transformed.x += (1.0 - bellK) * sin(uTime * 1.3 + transformed.y * 8.0) * 0.03;
+      `;
     }
     if (opts.sway) {
       deform += `
@@ -162,6 +175,6 @@ export function patchUnderwater(material, opts = {}) {
       }
       #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => 'uw' + (opts.key ?? '') + (opts.detail ? 'd' + (opts.detailScale ?? '') : '') + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
+  material.customProgramCacheKey = () => 'uw' + (opts.key ?? '') + (opts.vertical ? 'v' : '') + (opts.pulse ? 'p' : '') + (opts.detail ? 'd' + (opts.detailScale ?? '') : '') + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
   return material;
 }

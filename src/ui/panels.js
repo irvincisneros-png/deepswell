@@ -187,6 +187,7 @@ export class Panels {
         <div>
           <canvas class="chart" id="lab-chart" width="640" height="320" role="img" aria-label="Line chart of the simulation results"></canvas>
           <div class="readout">${L.readouts.map(r => `<div><b id="r-${r.key}">–</b>${esc(r.label)}</div>`).join('')}<div><b id="r-time">Year 0</b>elapsed</div></div>
+          <p id="lab-pending" style="font-size:13px;color:var(--accent2);margin:6px 0 0"></p>
           <div class="explain-box" id="lab-explain"></div>
           <details style="margin-top:8px;font-size:13px"><summary>Data table</summary><div id="lab-table"></div></details>
         </div>
@@ -196,6 +197,8 @@ export class Panels {
       for (const sl of sliders) { inp[sl.id] = +$(`#s-${sl.id}`).value; $(`#v-${sl.id}`).textContent = sl.fmt(inp[sl.id]); }
       for (const t of L.toggles ?? []) inp[t.id] = $(`#t-${t.id}`).checked;
       $('#lab-explain').textContent = L.explain(inp);
+      const changed = st.ran && JSON.stringify(st.ran) !== JSON.stringify(inp);
+      $('#lab-pending').textContent = changed ? 'Settings changed — the graph and the reef still show your last run. Press ▶ Run to update.' : '';
     };
     for (const sl of sliders) { $(`#s-${sl.id}`).value = inp[sl.id]; $(`#s-${sl.id}`).oninput = sync; }
     for (const t of L.toggles ?? []) { $(`#t-${t.id}`).checked = !!inp[t.id]; $(`#t-${t.id}`).onchange = sync; }
@@ -210,6 +213,7 @@ export class Panels {
       g.fillStyle = 'rgba(200,230,240,0.75)';
       for (let yr = 0; yr <= years; yr++) { const px = x0 + (yr * 12 / n) * (x1 - x0); g.fillText(`${yr}`, px - 5, H - 14); }
       g.fillText('years', x1 - 50, H - 14);
+      if (L.lines.some(l => l.dashed)) { g.save(); g.fillStyle = 'rgba(200,180,240,0.8)'; g.textAlign = 'right'; g.fillText('index 1.0', x1, yTop - 6); g.fillText('0', x1, y0 + 18); g.restore(); }
       L.lines.forEach((ln, li) => {
         g.strokeStyle = ln.color; g.lineWidth = 4; g.setLineDash(ln.dashed ? [10, 8] : []);
         g.beginPath();
@@ -231,6 +235,7 @@ export class Panels {
       const gen = this.labGen = (this.labGen ?? 0) + 1; // a new run cancels any previous one
       const series = st.series = L.simulate(inp, inp.years);
       const runInputs = { ...inp };
+      st.ran = { ...inp }; $('#lab-pending').textContent = '';
       const t0 = performance.now(), dur = 1200 + inp.years * 900;
       const tick = () => {
         if (gen !== this.labGen) return;

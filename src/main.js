@@ -54,6 +54,7 @@ class Game {
     addEventListener('resize', () => this.resize());
     this.resize();
     this.input.onLockChange = locked => $('#click-to-play').classList.toggle('hidden', locked || this.mode !== 'dive' || this.panels.isOpen);
+    this.input.onLockFail = () => { $('#click-to-play').classList.add('hidden'); this.toast('Mouse capture is blocked here — drag with the left mouse button to look around; click to use the camera or open cards.'); };
     this.bindMenu();
     this.bindKeys();
   }
@@ -183,7 +184,7 @@ class Game {
     else this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
     if (!this.panels.isOpen) this.lockSoon();
   }
-  lockSoon() { if (this.mode === 'dive') { $('#click-to-play').classList.toggle('hidden', this.input.locked); } }
+  lockSoon() { if (this.mode === 'dive') { $('#click-to-play').classList.toggle('hidden', this.input.locked || this.input.dragLook); } }
   onPanelClosed() {
     if (this.mode === 'dive') this.lockSoon();
     if (this.mode === 'menu') this.updateProgressSummary();
@@ -345,6 +346,9 @@ class Game {
   // ------------------------------------------------------------------ feedback
   toast(text, kind = '') {
     const box = $('#toast');
+    const now = performance.now();
+    if (this.lastToast === text && now - this.lastToastT < 4000) return; // no duplicate spam
+    this.lastToast = text; this.lastToastT = now;
     const el = document.createElement('div');
     el.className = `toast ${kind}`; el.textContent = text;
     box.appendChild(el);
@@ -470,7 +474,7 @@ class Game {
     if (!paused && !this.blackedOut) {
       d.update(dt, this.world);
       for (const c of this.input.takeClicks()) {
-        if (!this.input.locked) continue;
+        if (!this.input.lookActive) continue;
         if (c.button === 2) { this.toggleCamera(); continue; }
         if (this.cameraMode) this.takePhoto();
         else {
@@ -495,7 +499,7 @@ class Game {
     this.roar = 0;
     // Hover label
     if (this.frame % 5 === 0 && !paused) {
-      const hit = this.input.locked && !this.cameraMode ? this.world.pick(this.camera.position, d.lookDir, 12) : null;
+      const hit = this.input.lookActive && !this.cameraMode ? this.world.pick(this.camera.position, d.lookDir, 12) : null;
       const lbl = $('#target-label');
       if (hit) { const sp = this.eco.speciesInfo.find(s => s.id === hit.id); lbl.innerHTML = sp ? `${esc(sp.common)} <i>· click for info</i>` : ''; lbl.classList.toggle('show', !!sp); }
       else lbl.classList.remove('show');
@@ -515,7 +519,12 @@ class Game {
     $('#max-depth').textContent = Math.floor(d.maxDepth);
     const bu = buoyancyAt(d.depthNow ?? 0);
     $('#buoy').textContent = (d.depthNow ?? 0) < 0.45 ? 'At the surface — breathing' : bu > 0.05 ? 'Buoyancy: floating up ↑' : bu < -0.05 ? 'Buoyancy: sinking ↓ (freefall)' : 'Buoyancy: neutral';
-    $('#eq-prompt').classList.toggle('hidden', d.ear < 0.35);
+    const eq = $('#eq-prompt');
+    eq.classList.toggle('hidden', d.ear < 0.35 && !d.earWarned);
+    if (d.earWarned) {
+      const need = Math.max(0, (d.depthNow ?? 0) - ((d.painDepth ?? 0) - 0.8));
+      eq.innerHTML = need > 0 ? `Ear pain — rise <b>${need.toFixed(1)} m</b> (Space), then equalise` : 'Now equalise gently: <kbd>Q</kbd>';
+    } else eq.innerHTML = 'Ears filling with pressure — equalise: <kbd>Q</kbd>';
     const v = 0.3 + (d.breath < 0.3 ? (0.3 - d.breath) * 2.2 : 0) + Math.min(0.4, d.ear * 0.2);
     $('#fx-vignette').style.setProperty('--v', v.toFixed(2));
     if (d.breath < 0.3 && !paused) {

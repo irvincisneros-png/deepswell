@@ -89,8 +89,10 @@ export class Life {
   makeInstanced(id, n) {
     const look = LOOKS[id];
     const built = look.kind ? buildRay(look) : buildFish(look);
-    const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.35 : 0.55, metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
-    patchUnderwater(mat, { swim: true, swimLength: built.length, flap: !!look.kind, waveK: look.kind ? 2.5 : 6.0 });
+    const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.35 : (look.rough ?? 0.55), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
+    if (built.emissive) { mat.emissiveMap = built.emissive; mat.emissive = new THREE.Color(0xffffff); mat.emissiveIntensity = look.glowIntensity ?? 2.5; }
+    if (look.transparent) { mat.transparent = true; mat.opacity = look.transparent; mat.depthWrite = false; }
+    patchUnderwater(mat, { swim: true, swimLength: built.length, flap: !!look.kind, waveK: look.kind ? 2.5 : (look.waveK ?? 6.0), vertical: !!look.vertical });
     const swim = new Float32Array(n * 2);
     built.geometry.setAttribute('aSwim', new THREE.InstancedBufferAttribute(swim, 2).setUsage(THREE.DynamicDrawUsage));
     const im = new THREE.InstancedMesh(built.geometry, mat, n);

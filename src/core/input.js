@@ -24,10 +24,15 @@ export class Input {
     addEventListener('mousemove', e => { if (this.locked || (this.dragLook && this.mouseDown[0])) { this.mx += e.movementX; this.my += e.movementY; } });
     canvas.addEventListener('mousedown', e => {
       this.mouseDown[e.button] = true;
+      this.downAt = { x: e.clientX, y: e.clientY };
       if (this.wantLock && !this.locked && !this.dragLook) { this.lock(); return; }
-      this.clicks.push({ button: e.button, x: e.clientX, y: e.clientY });
+      if (!this.dragLook || this.locked) this.clicks.push({ button: e.button, x: e.clientX, y: e.clientY });
     });
-    addEventListener('mouseup', e => { this.mouseDown[e.button] = false; });
+    addEventListener('mouseup', e => {
+      this.mouseDown[e.button] = false;
+      // Drag-look mode: a click without dragging still counts as a click (photo / info card).
+      if (this.dragLook && !this.locked && this.downAt && Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y) < 5) this.clicks.push({ button: e.button, x: e.clientX, y: e.clientY });
+    });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; this.onLockChange?.(this.locked); });
   }
@@ -35,6 +40,7 @@ export class Input {
     const fail = () => { this.dragLook = true; this.onLockFail?.(); };
     try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(fail); } catch { fail(); }
   }
+  get lookActive() { return this.locked || this.dragLook; }
   clear() { this.keys.clear(); this.pressed.clear(); this.mx = this.my = 0; this.clicks = []; }
   unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
   down(...codes) { return codes.some(c => this.keys.has(c)); }

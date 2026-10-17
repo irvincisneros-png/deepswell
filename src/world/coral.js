@@ -155,7 +155,7 @@ function plate(R, rad, heightFn, thick, colFn, rings = 9, segs = 44) {
     }
     for (let i = 0; i < rings; i++) for (let j = 0; j < segs; j++) {
       const a = off + i * (segs + 1) + j, b = a + segs + 1;
-      if (side === 0) idx.push(a, b, a + 1, a + 1, b, b + 1); else idx.push(a, a + 1, b, a + 1, b + 1, b);
+      if (side === 0) idx.push(a, a + 1, b, a + 1, b + 1, b); else idx.push(a, b, a + 1, a + 1, b, b + 1);
     }
   }
   // Rim

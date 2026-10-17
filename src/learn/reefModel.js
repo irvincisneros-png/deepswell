@@ -66,7 +66,7 @@ export function explain(inputs) {
   const parts = [];
   if (d === 0) parts.push(`Summer sea temperature +${inputs.temp.toFixed(1)} °C stays below the bleaching threshold (about +1 °C above the normal summer maximum).`);
   else parts.push(`+${inputs.temp.toFixed(1)} °C for ~${HOTSPOT_WEEKS} weeks ≈ ${d.toFixed(0)} Degree Heating Weeks → ${d >= 8 ? 'severe bleaching and coral death likely' : d >= 4 ? 'significant bleaching likely' : 'some bleaching possible'}. Heat-stressed corals expel their symbiotic algae (zooxanthellae), lose their colour and their main food supply.`);
-  if (inputs.nutrients > 0.5) parts.push('High nutrient runoff feeds algae and helps crown-of-thorns larvae survive — a trigger for outbreaks.');
+  if (inputs.nutrients > 0.5) parts.push('High nutrient runoff feeds algae, and may help more crown-of-thorns larvae survive — one possible contributor to outbreaks (scientists still debate how much).');
   if (inputs.fishing > 0.5) parts.push('Heavy fishing removes herbivores that graze algae and predators of juvenile starfish.');
   return parts.join(' ');
 }

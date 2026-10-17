@@ -842,7 +842,7 @@ export const missions = [
           'How deep the warm water reaches'
         ],
         answer: 1,
-        explain: 'DHW adds up heat above the bleaching threshold (about 1 °C over the normal summer maximum) across the previous 12 weeks. Around 4 DHW, significant bleaching is likely; above about 8 DHW, severe bleaching and coral death are likely. (The lab simplifies this by assuming about 6 hot weeks.)'
+        explain: 'DHW adds up how far the sea is above its normal summer maximum (MMM), counting only weeks when it is at least 1 °C above, over the previous 12 weeks. Around 4 DHW, significant bleaching is likely; above about 8 DHW, severe bleaching and coral death are likely. (The lab simplifies this by assuming about 6 hot weeks.)'
       },
       {
         q: 'How can fertiliser running off farms lead to crown-of-thorns starfish outbreaks?',
