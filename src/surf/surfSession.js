@@ -117,7 +117,6 @@ export class SurfSession {
   startRide(s, H) {
     this.state = 'ride';
     this.surfer.setPose('stand');
-    this.audio?.splash();
     this.ride = { ft: 0.85, theta: -0.55, v: 4.2, time: 0, tube: 0, lean: 0, lastTheta: -0.55, turnAcc: 0, peakFt: 0.85, events: [], pumpCD: 0, pumpAnim: 0, crouch: false, combo: 1, maxSpeed: 0 };
     this.score = 0;
     this.onTrick?.('Pop up!', 50);
@@ -214,7 +213,6 @@ export class SurfSession {
     const p = Math.round(pts * R.combo);
     this.score += p;
     this.onTrick?.(name, p);
-    this.audio?.blip(660 + pts, 0.12, 0.06);
   }
 
   startWipeout(reason) {
@@ -222,7 +220,6 @@ export class SurfSession {
     this.endTimer = 2.4;
     this.reason = reason;
     this.surfer.wipeout();
-    this.audio?.splash();
     this.fx.sprayBurst(this.pos, new THREE.Vector3(0, 0, 1), 60, 5);
   }
   kickOut(reason) {

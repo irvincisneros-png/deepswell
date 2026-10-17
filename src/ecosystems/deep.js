@@ -120,6 +120,7 @@ export const deep = {
     skyTop: 0x1a4a8a, skyHorizon: 0x8ab0d0, sun: [0.3, 0.9, -0.3], sunIntensity: 0, ambient: 0.05, envBelow: 0,
     hemiSky: 0x203850, hemiGround: 0x000000,
   },
+  sound: { wash: 0.3, wind: 0.3, shrimp: 0, deep: 1 },
   surf: null,
   diveSpawn: { x: 0, y: -170, z: -70, yaw: Math.PI },
   menuCam: { look: [-28, -619, 14], r: 9, y: -603 },

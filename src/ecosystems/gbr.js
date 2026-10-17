@@ -73,6 +73,8 @@ export const gbr = {
     shallow: 0x37d6c6, mid: 0x0f86a0, deep: 0x04324a,
     skyTop: 0x1c64c8, skyHorizon: 0xa6d8ef, sun: [0.35, 0.82, -0.45],
   },
+  // Healthy coral reefs crackle with snapping shrimp; quieter as coral dies (game.reefHealth from the lab).
+  sound: { wash: 1, wind: 0.25, shrimp: 1, gulls: 0.5 },
   surf: { H: 2.4, speed: 5.5, peel: 6.4, peakX: 22, z0: -75, breakZ: -12, endZ: 60, lineupZ: -26, lineupX: 14 },
   station: STATION,
   anemones: ANEMONES,
@@ -121,6 +123,7 @@ export const gbr = {
     explain,
     check: r => (r.max.bleach > 0.5 ? ['bleaching'] : []),
     apply(game, s) {
+      game.reefHealth = Math.min(1, s.coral / 0.32);
       globalUniforms.uBleach.value = Math.min(1, s.bleach * 1.05);
       globalUniforms.uDead.value = Math.min(1, Math.max(0, (0.32 - s.coral) / 0.32) * 1.1);
       // Functional groups come from the species cards so the lab never contradicts the field guide.

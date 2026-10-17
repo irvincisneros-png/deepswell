@@ -5,7 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Input } from './core/input.js';
-import { Audio } from './core/audio.js';
+import { Audio } from './audio/index.js';
 import { loadSettings, saveSettings, TIERS } from './core/settings.js';
 import { loadProgress, saveProgress, resetProgress, progressCSV } from './core/save.js';
 import { globalUniforms } from './ocean/shaders.js';
@@ -59,6 +59,11 @@ class Game {
     this.input.onLockFail = () => { $('#click-to-play').classList.add('hidden'); this.toast('Mouse capture is blocked here — drag with the left mouse button to look around; click to use the camera or open cards.'); };
     this.bindMenu();
     this.bindKeys();
+    // Browsers only allow audio after a user gesture: start on the first click or key press anywhere.
+    const wake = () => this.audio.start();
+    addEventListener('pointerdown', wake, true); addEventListener('keydown', wake, true);
+    // Soft tick for every button.
+    document.addEventListener('click', e => { if (e.target.closest?.('button:not([disabled])')) this.audio.play('click'); }, true);
   }
 
   setupComposer() {
@@ -79,7 +84,7 @@ class Game {
   async start() {
     const bar = $('#load-bar'), msg = $('#load-msg');
     await this.world.load(this.eco, (f, m) => { bar.style.width = `${f * 100}%`; msg.textContent = m; });
-    this.ensureBoat(); this.resetEcoState();
+    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco);
     this.renderer.compile(this.scene, this.camera);
     $('#loading').classList.remove('show');
     this.enterMenu();
@@ -111,7 +116,7 @@ class Game {
     $('#loading').classList.add('show'); $('#menu').classList.remove('show');
     this.surfSession = null;
     await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
-    this.ensureBoat(); this.resetEcoState();
+    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco);
     $('#loading').classList.remove('show');
     this.activeMission = null; this.updateMissionHUD();
     this.bindMenu();
@@ -193,7 +198,7 @@ class Game {
       ? [['WASD', 'thrusters'], ['Space/C', 'ascend/descend'], ['Shift', 'boost'], ['T', 'lights'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', 'return to ship'], ['P', 'pause']]
       : [['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', this.eco.surf ? 'board' : 'boat'], ['P', 'pause']]);
     document.body.classList.toggle('sub-mode', sub);
-    if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); this.audio.bubbles(14, 300); }
+    if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); }
     else this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
     if (!this.panels.isOpen) this.lockSoon();
   }
@@ -215,7 +220,7 @@ class Game {
       if (c === 'KeyM') this.openMissions();
       if (c === 'KeyL') this.openLab();
       if (c === 'KeyE') this.tryBoard();
-      if (c === 'KeyT' && this.subLights) { this.subLights.visible = !this.subLights.visible; this.toast(this.subLights.visible ? 'Lights on.' : 'Lights off — let your eyes adjust and watch for living light.'); }
+      if (c === 'KeyT' && this.subLights) { this.audio.play('lightsClunk'); this.subLights.visible = !this.subLights.visible; this.toast(this.subLights.visible ? 'Lights on.' : 'Lights off — let your eyes adjust and watch for living light.'); }
     });
   }
   setKeys(list) { $('#keys').innerHTML = list.map(([k, v]) => `<span><kbd>${k}</kbd> ${v}</span>`).join(''); }
@@ -282,6 +287,7 @@ class Game {
       const b = this.eco.boat ?? { x: 0, z: 0 };
       if (this.diver.depthNow > 0.6) { this.toast('Surface first, then signal the boat.'); return; }
       this.diver.spawn(new THREE.Vector3(b.x + 3, -0.1, b.z + 2), this.diver.yaw, Math.max(this.diver.breath, 0.6));
+      this.audio.play('climbAboard');
       this.toast('You climbed aboard the dive boat, rested and slipped back in. (Freedivers rest at the surface for at least twice as long as their dive.)');
       return;
     }
@@ -330,7 +336,7 @@ class Game {
     if (met) {
       this.progress.missions[key] = { ...st, goalMet: true }; this.persist();
       this.toast(`✅ Objective complete: ${m.title}! Press M to answer the check questions.`, 'good');
-      this.audio.blip(1180, 0.25, 0.1);
+      this.audio.play('missionDone');
     }
     this.updateMissionHUD();
   }
@@ -356,7 +362,7 @@ class Game {
     $('#viewfinder').classList.toggle('hidden', !this.cameraMode);
     $('#crosshair').classList.toggle('hidden', this.cameraMode);
     this.camera.fov = this.cameraMode ? 50 : 70; this.camera.updateProjectionMatrix();
-    this.audio.blip(this.cameraMode ? 700 : 500, 0.06, 0.05);
+    this.audio.play('cameraUp', { up: this.cameraMode });
   }
   photoCandidates() {
     const known = new Set(this.eco.speciesInfo.map(s => s.id));
@@ -364,7 +370,7 @@ class Game {
   }
   takePhoto() {
     const res = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: this.diver.speed });
-    this.audio.shutter();
+    this.audio.play('shutter');
     $('#fx-flash').style.transition = 'none'; $('#fx-flash').style.opacity = 0.35;
     requestAnimationFrame(() => { $('#fx-flash').style.transition = 'opacity 0.5s'; $('#fx-flash').style.opacity = 0; });
     if (!res.subject || res.quality === 0) { this.toast(res.reason, 'warn'); return; }
@@ -384,6 +390,8 @@ class Game {
     this.progress.journal[key] = entry;
     this.persist();
     const st = '★'.repeat(res.quality) + '☆'.repeat(3 - res.quality);
+    this.audio.play(isNew ? 'newSpecies' : better ? 'betterPhoto' : 'click');
+    if (newB.length) this.audio.play('behaviour', { delay: 0.5 });
     if (isNew) this.toast(`📗 New species: ${sp.common} (${sp.sci}) ${st}. ${res.reason} Field notes unlocked — press J.`, 'good');
     else if (better) this.toast(`Better photo of the ${sp.common}! ${st}`, 'good');
     else this.toast(`${sp.common} ${st}. ${res.reason}`);
@@ -407,6 +415,7 @@ class Game {
     this.lastToast = text; this.lastToastT = now;
     const el = document.createElement('div');
     el.className = `toast ${kind}`; el.textContent = text;
+    if (kind === 'warn') this.audio.play('warn');
     box.appendChild(el);
     while (box.children.length > 2) box.firstChild.remove();
     setTimeout(() => el.remove(), 4200 + text.length * 35);
@@ -415,6 +424,7 @@ class Game {
     const el = document.createElement('div');
     el.className = 'trick'; el.innerHTML = `${esc(name)}<span>+${pts}</span>`;
     $('#tricks').appendChild(el);
+    this.audio.play('trick', { combo: Math.round(((this.surfSession?.ride?.combo ?? 1) - 1) * 4) });
     setTimeout(() => el.remove(), 1700);
   }
   flash() { const f = $('#fx-flash'); f.style.transition = 'none'; f.style.opacity = 0.9; requestAnimationFrame(() => { f.style.transition = 'opacity 1.4s'; f.style.opacity = 0; }); }
@@ -459,7 +469,7 @@ class Game {
     this.world.ocean.update(this.camera, depth > 0);
     this.world.sky.update(this.camera);
     this.fx.update(dt, this.camera, 0);
-    this.audio.update(dt, { under: depth > 0 ? 1 : 0, roar: this.roar ?? 0, depth });
+    this.audio.update(dt, { mode: this.mode, depth, camera: this.camera, roar: this.roar ?? 0, surf: this.mode === 'surf' ? this.surfSession : null, diver: this.diver, life: this.world.life, boat: this.boat, eco: this.eco, blackedOut: this.blackedOut, reefHealth: this.reefHealth ?? 1 });
     $('#fx-uw').style.opacity = depth > 0 ? 1 : 0;
     if (skipRender) { this.input.endFrame(); return; }
     if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
@@ -589,7 +599,7 @@ class Game {
     $('#fx-vignette').style.setProperty('--v', v.toFixed(2));
     if (d.breath < 0.3 && !paused) {
       this.hbT = (this.hbT ?? 0) - dt;
-      if (this.hbT <= 0) { this.audio.heartbeat(0.6); this.hbT = 0.5 + d.breath * 3; }
+      if (this.hbT <= 0) { this.audio.play('heartbeat', { rate: 0.6 + (0.3 - d.breath) * 1.5 }); this.hbT = 0.5 + d.breath * 3; }
     }
     if (d.outOfBounds && this.frame % 240 === 0) this.toast(this.eco.boundsMsg ?? 'You\'re leaving the dive site — your buddy signals you to turn back.', 'warn');
     if (this.activeMission?.goal.type === 'depth' && this.frame % 30 === 0) this.checkMission('depth');
@@ -598,9 +608,10 @@ class Game {
 
   onDiverEvent(e) {
     const d = this.diver;
-    if (e === 'surface') { this.audio.breath(true); this.fx.bubbleBurst(d.pos, 6, 0.2); if (d.maxDepth > 3) this.toast(`Surfaced from ${d.maxDepth.toFixed(1)} m. Breathe and recover before the next dive.`); }
-    if (e === 'dive') { this.audio.bubbles(4, 600); }
-    if (e === 'equalise') { this.audio.blip(330, 0.12, 0.05); }
+    if (e === 'surface') { this.audio.play('breath', { inhale: false }); this.audio.play('breath', { inhale: true, delay: 0.8 }); this.fx.bubbleBurst(d.pos, 6, 0.2); if (d.maxDepth > 3) this.toast(`Surfaced from ${d.maxDepth.toFixed(1)} m. Breathe and recover before the next dive.`); }
+    if (e === 'dive') { this.audio.play('smallSplash'); this.audio.play('bubbles', { n: 5, base: 600, delay: 0.15 }); }
+    if (e === 'equalise') this.audio.play('equalise');
+    if (e === 'earPain') this.audio.play('earPain');
     if (e === 'earPain' && !this.earToastShown) this.earToastShown = true, this.toast('Ear pain! Stop descending, rise a little (Space) and equalise gently (Q). If it won\'t clear, end the dive — never force it.', 'warn');
     if (e === 'eqFail') this.toast('Can\'t equalise under pain — rise about a metre first, then press Q.', 'warn');
     if (e === 'lowO2') this.toast('O₂ reserve low — ascend now. (This gauge is a game reserve: real divers get no reliable warning before blackout.)', 'warn');
@@ -611,12 +622,14 @@ class Game {
     b.style.opacity = 1;
     this.blackedOut = true; this.input.clear();
     clearTimeout(this.blackoutTimer);
+    this.audio.play('blackout', { priority: true }); this.audio.duck(0.12, 1.5);
     this.toast('You blacked out. Freedivers can lose consciousness without warning when oxygen runs low ("shallow-water blackout").', 'bad');
     this.blackoutTimer = setTimeout(() => {
       if (this.mode !== 'dive') return;
       const d = this.diver;
       d.spawn(new THREE.Vector3(d.pos.x, -0.1, d.pos.z), d.yaw, 0.5);
       b.style.opacity = 0; this.blackedOut = false;
+      this.audio.duck(1, 0.6); this.audio.play('recoveryBreaths', { priority: true });
       this.toast('Your dive buddy brought you to the surface and kept your airway clear. This is why you NEVER freedive alone.', 'good');
     }, 2200);
   }

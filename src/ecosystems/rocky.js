@@ -134,6 +134,7 @@ export const rocky = {
     skyTop: 0x3a78c0, skyHorizon: 0xc0d8e2, sun: [0.55, 0.62, -0.3], sunColor: 0xfff0dc, sunIntensity: 2.3,
     hemiSky: 0xbfe0e8, hemiGround: 0x3a5a4a,
   },
+  sound: { wash: 1.2, wind: 0.4, shrimp: 0.6, gulls: 1 },
   surf: { H: 1.7, speed: 5.0, peel: 5.6, peakX: 20, z0: -50, breakZ: 14, endZ: 62, lineupZ: 4, lineupX: 12, breakName: 'Sandbar beach break',
     intro: 'Beach break on a sandbar. Waves come in sets — watch behind you, then paddle (hold W) when one approaches.' },
   diveSpawn: { x: 0, z: -18 },
@@ -187,6 +188,7 @@ export const rocky = {
     ].filter(Boolean).join(' '),
     check: r => (r.max.barren > 0.5 ? ['barren'] : []),
     apply(game, s) {
+      game.reefHealth = Math.min(1, s.kelp / 0.62);
       // The barren spreads outward from its starting patch: kelp is cleared inside it, thinned elsewhere by heat stress.
       const R = BARREN.r + Math.max(0, s.barren - 0.04) * 75;
       const outside = Math.min(1, s.kelp / Math.max(0.05, 0.62 * (1 - s.barren * 0.9)));

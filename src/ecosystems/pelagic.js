@@ -88,6 +88,7 @@ export const pelagic = {
     skyTop: 0x1e66c8, skyHorizon: 0xb8daf2, sun: [0.4, 0.8, -0.4], sunIntensity: 2.7,
     hemiSky: 0xbfe0ff, hemiGround: 0x0a2a50,
   },
+  sound: { wash: 0.6, wind: 0.6, shrimp: 0 },
   surf: null,
   diveSpawn: { x: 6, z: -6, yaw: Math.PI * 0.9 },
   menuCam: { look: [0, -9, -26], r: 13, y: -7 },

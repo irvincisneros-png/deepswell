@@ -105,6 +105,7 @@ export const seagrass = {
     skyTop: 0x2a6fc4, skyHorizon: 0xcde4ee, sun: [0.3, 0.86, -0.3], sunIntensity: 2.6,
     hemiSky: 0xd0e8e0, hemiGround: 0x4a5a3a,
   },
+  sound: { wash: 0.35, wind: 0.2, shrimp: 0.35, gulls: 0.3, mangroveBirds: 1, mangroveAt: [0, 66] },
   surf: null,
   diveSpawn: { x: 0, z: -8, yaw: 0 },
   menuCam: { look: [0, -2.2, -4], r: 9, y: -1.1 },
@@ -151,6 +152,7 @@ export const seagrass = {
     ].filter(Boolean).join(' '),
     check: r => (r.final.seagrass < 0.3 ? ['seagrass-loss'] : []),
     apply(game, s) {
+      game.reefHealth = Math.min(1, s.seagrass / 0.6);
       game.world.reef.setKindFraction('zostera', Math.min(1, s.seagrass / 0.6));
       game.world.reef.setKindFraction('halophila', Math.min(1, s.seagrass / 0.6));
       game.env.fogDensityBelow = 0.1 * (1 + Math.max(0, 0.75 - s.light) * 2.5);

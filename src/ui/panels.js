@@ -17,7 +17,7 @@ export class Panels {
   }
   get isOpen() { return !this.modal.classList.contains('hidden'); }
   open(html, onClose) {
-    if (!this.isOpen) this.returnFocus = document.activeElement;
+    if (!this.isOpen) { this.returnFocus = document.activeElement; this.game.audio.play('panelOpen'); }
     this.body.innerHTML = html;
     this.modal.classList.remove('hidden');
     this.game.input.clear();
@@ -30,6 +30,7 @@ export class Panels {
     if (!this.isOpen) return;
     this.modal.classList.add('hidden');
     this.body.innerHTML = '';
+    this.game.audio.play('panelClose');
     const cb = this.onClose; this.onClose = null;
     cb?.();
     if (this.returnFocus?.isConnected) this.returnFocus.focus();
@@ -157,7 +158,7 @@ export class Panels {
         answers[i] = k;
         btns.forEach(x => { x.disabled = true; if (+x.dataset.k === q.answer) x.classList.add('right'); });
         if (k === q.answer) score++; else b.classList.add('wrong');
-        this.game.audio.blip(k === q.answer ? 990 : 220, 0.15, 0.08);
+        this.game.audio.play(k === q.answer ? 'correct' : 'wrong');
         const ex = $('.explain', this.body);
         ex.innerHTML = `${k === q.answer ? '✅ Correct.' : '❌ Not quite.'} ${esc(q.explain)} <p><button class="btn small primary" id="q-next">${i + 1 < m.questions.length ? 'Next question' : 'Finish'}</button></p>`;
         $('#q-next', this.body).onclick = () => { i++; step(); };
@@ -233,6 +234,7 @@ export class Panels {
     if (st.series) show(st.series, st.idx); else { st.series = L.simulate(inp, 0); st.idx = 0; show(st.series, 0); }
     $('#lab-run').onclick = () => {
       sync();
+      game.audio.play('labRun');
       const gen = this.labGen = (this.labGen ?? 0) + 1; // a new run cancels any previous one
       const from = $('#lab-continue').checked && st.series ? st.series[st.idx] : null;
       const series = st.series = L.simulate(inp, inp.years, from);
