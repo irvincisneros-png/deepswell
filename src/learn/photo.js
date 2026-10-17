@@ -41,6 +41,9 @@ export function evaluatePhoto(camera, candidates, { groundAt, maxRange = 14, div
     if (a.closed) behaviours.add('closing');
     if (a.b?.type === 'school' || a.b?.type === 'vortex') behaviours.add('schooling');
     if (a.b?.type === 'host') behaviours.add('symbiosis');
+    if (a.b?.camo) behaviours.add('camouflage');
+    if (a.b?.glow) behaviours.add('bioluminescence');
+    if (a.hunting) behaviours.add('hunting');
   }
   // Behaviours belong to the subject only: a cleaning shot must show the cleaner or the fish being cleaned.
   return { subject: best.c, quality, reason, behaviours: [...behaviours], inFrame };

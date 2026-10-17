@@ -372,7 +372,7 @@ export function rock(seed) {
 }
 
 /** Turtle as a small rig: returns { group, flippers: {fl, fr, rl, rr}, head } */
-export function turtle(seed = 1) {
+export function turtle(seed = 1, colors = {}) {
   const group = new THREE.Group();
   // Carapace texture: polygonal scutes with radiating streaks.
   const c = document.createElement('canvas'); c.width = c.height = 256;
@@ -386,7 +386,8 @@ export function turtle(seed = 1) {
     const edge = d2 - d1 < 0.012;
     const ang = Math.atan2(v - cells[best][1], u - cells[best][0]);
     const streak = 0.8 + 0.25 * Math.sin(ang * 9 + best) * Math.min(1, d1 * 8);
-    const base = [0.38 * streak, 0.3 * streak, 0.16 * streak];
+    const sc = colors.shell ?? [0.38, 0.3, 0.16];
+    const base = [sc[0] * streak, sc[1] * streak, sc[2] * streak];
     const col = edge ? [0.8, 0.72, 0.5] : base;
     const i = (y * 256 + x) * 4;
     img.data[i] = col[0] * 255; img.data[i + 1] = col[1] * 255; img.data[i + 2] = col[2] * 255; img.data[i + 3] = 255;
@@ -394,7 +395,7 @@ export function turtle(seed = 1) {
   ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
   const shellMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
-  const skinMat = new THREE.MeshStandardMaterial({ color: 0x6f6a4a, roughness: 0.8 });
+  const skinMat = new THREE.MeshStandardMaterial({ color: colors.skin ?? 0x6f6a4a, roughness: 0.8 });
   const bellyMat = new THREE.MeshStandardMaterial({ color: 0xe8d8a0, roughness: 0.8 });
   const shell = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), shellMat);
   shell.scale.set(0.95, 0.42, 0.72);

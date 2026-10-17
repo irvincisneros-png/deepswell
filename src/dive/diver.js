@@ -53,25 +53,29 @@ export class Diver {
     if (inp.down('Space')) wish.y += 1;
     if (inp.down('KeyC', 'ControlLeft', 'ControlRight')) wish.y -= 1;
     const sprint = inp.down('ShiftLeft', 'ShiftRight');
+    const sub = this.vehicle === 'sub';
     let effort = 0;
     if (wish.lengthSq() > 0) { wish.normalize(); effort = sprint ? 1 : 0.55; }
     // At the surface you can only duck-dive by pitching down and kicking.
     if (atSurface && wish.y > 0) wish.y = 0;
+    if (this.vehicle === 'sub') wish.y *= 2.2; // ballast tanks: fast vertical travel
     const earBlock = this.ear > 1 && wish.y < 0; // can't descend with painful unequalised ears
     if (earBlock) wish.y = 0;
     this.kick = damp(this.kick, effort, 4, dt);
-    const thrust = (sprint ? 2.6 : 1.7);
+    const thrust = (sprint ? 2.6 : 1.7) * (sub ? 2.4 : 1);
     this.vel.addScaledVector(wish, thrust * dt * 1.6);
-    // Buoyancy + drag
-    if (!atSurface) this.vel.y += buoyancyAt(depth) * dt;
+    // Buoyancy + drag (the submersible trims itself neutral)
+    if (sub) { /* neutral */ }
+    else if (!atSurface) this.vel.y += buoyancyAt(depth) * dt;
     else this.vel.y += (surfaceH - 0.05 - this.pos.y) * 4 * dt; // float at the surface
     this.vel.multiplyScalar(Math.exp(-1.25 * dt));
+    if (sub && this.pos.y > (this.ceiling ?? -150)) { this.pos.y = this.ceiling ?? -150; if (this.vel.y > 0) this.vel.y = 0; }
     if (earBlock && this.vel.y < 0) this.vel.y *= Math.exp(-6 * dt);
     this.pos.addScaledVector(this.vel, dt);
     this.speed = this.vel.length();
 
     // Collisions: seabed, coral pick spheres, surface ceiling, soft site boundary.
-    const ground = world.groundAt(this.pos.x, this.pos.z) + 0.45;
+    const ground = world.groundAt(this.pos.x, this.pos.z) + (sub ? 1.6 : 0.45);
     if (this.pos.y < ground) { this.pos.y = ground; if (this.vel.y < 0) this.vel.y = 0; }
     for (const c of world.nearbyColliders(this.pos, 3)) {
       const d = this.pos.distanceTo(c.center);
@@ -86,7 +90,8 @@ export class Diver {
 
     // Breath: consumption rises with effort; breathe up at the surface.
     const d2 = Math.max(0, surfaceH - this.pos.y);
-    if (d2 < 0.45) {
+    if (sub) { this.breath = 1; this.ear = 0; this.depthNow = d2; this.maxDepth = Math.max(this.maxDepth, d2); }
+    else if (d2 < 0.45) {
       if (!this.surfaced) { ev.push('surface'); this.surfaced = true; }
       this.breath = Math.min(1, this.breath + dt * 0.09); // recovery breathing takes time
       this.eqDepth = 0; this.ear = 0; this.lowWarned = false; this.earWarned = false;
@@ -109,6 +114,7 @@ export class Diver {
     }
     this.breath = clamp(this.breath, 0, 1);
     this.depthNow = d2;
+    this.speed = this.vel.length();
 
     // Camera: gentle bob at the surface, slight sway with kicks.
     const bob = d2 < 0.45 ? Math.sin(performance.now() * 0.0016) * 0.04 : 0;

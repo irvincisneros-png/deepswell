@@ -4,7 +4,7 @@ import { TIERS } from '../core/settings.js';
 const $ = (s, r = document) => r.querySelector(s);
 export const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const stars = q => '★'.repeat(q) + '☆'.repeat(3 - q);
-const BEHAVIOUR_NAMES = { cleaning: 'Cleaning interaction', grazing: 'Grazing / bioerosion', breathing: 'Surfacing to breathe', closing: 'Shell closing', schooling: 'Schooling', symbiosis: 'Living in its host' };
+const BEHAVIOUR_NAMES = { camouflage: 'Camouflage', bioluminescence: 'Bioluminescence', hunting: 'Hunting / predator–prey', cleaning: 'Cleaning interaction', grazing: 'Grazing / bioerosion', breathing: 'Surfacing to breathe', closing: 'Shell closing', schooling: 'Schooling', symbiosis: 'Living in its host' };
 
 export class Panels {
   constructor(game) {
@@ -171,7 +171,7 @@ export class Panels {
   lab(eco, game) {
     const L = eco.lab;
     this.labState ??= {};
-    const st = this.labState[eco.id] ??= { inputs: { ...L.defaults, years: 5 }, series: null, idx: 0 };
+    const st = this.labState[eco.id] ??= { inputs: { years: 5, ...L.defaults }, series: null, idx: 0 };
     const inp = st.inputs;
     const sliders = [...L.sliders, { id: 'years', label: 'Years to fast-forward', min: 1, max: 10, step: 1, fmt: v => `${v}` }];
     const html = `

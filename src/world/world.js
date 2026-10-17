@@ -50,7 +50,7 @@ export class World {
     this.bounds = eco.bounds;
     progress(1, 'Ready');
   }
-  surfaceAt(x, z) { return this.eco.surface === false ? 1e6 : this.ocean.heightAt(x, z, this.time ?? 0); }
+  surfaceAt(x, z) { return this.ocean.heightAt(x, z, this.time ?? 0); }
   groundAt(x, z) { return this.terrain.heightAt(x, z); }
   nearbyColliders(p, r = 3) {
     const out = [];

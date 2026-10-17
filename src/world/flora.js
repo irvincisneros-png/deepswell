@@ -49,7 +49,7 @@ function ribbon(points, widths, side, colFn) {
 export function kelp(seed) {
   const rnd = mulberry32(seed);
   const parts = [];
-  const H = 0.6 + rnd() * 0.5;
+  const H = 0.45 + rnd() * 0.4;
   const stipeTop = new THREE.Vector3((rnd() - 0.5) * 0.1, H, (rnd() - 0.5) * 0.1);
   parts.push(tube(new THREE.Vector3(), stipeTop, 0.022, 0.016, 5, [0.32, 0.22, 0.1], [0.45, 0.32, 0.12]));
   // Holdfast
@@ -57,15 +57,15 @@ export function kelp(seed) {
   colorize(hf, () => [0.3, 0.22, 0.12]); parts.push(strip(hf));
   const gold = [0.62, 0.45, 0.14], dark = [0.4, 0.27, 0.08];
   // Primary frond: blades fanning out from the stipe top, drooping.
-  const blades = 6 + Math.floor(rnd() * 4);
+  const blades = 11 + Math.floor(rnd() * 5);
   for (let b = 0; b < blades; b++) {
-    const ang = rnd() * Math.PI * 2, len = 0.45 + rnd() * 0.35, rise = 0.25 + rnd() * 0.3;
+    const ang = rnd() * Math.PI * 2, len = 0.55 + rnd() * 0.45, rise = 0.15 + rnd() * 0.35;
     const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
     const pts = [], ws = [];
     for (let i = 0; i <= 8; i++) {
       const t = i / 8;
       pts.push(stipeTop.clone().addScaledVector(dir, t * len).add(new THREE.Vector3(0, Math.sin(t * Math.PI * 0.8) * rise * len - t * t * 0.15, 0)));
-      ws.push(0.07 * Math.sin(Math.PI * Math.min(1, t * 1.1 + 0.05)) + 0.01);
+      ws.push(0.12 * Math.sin(Math.PI * Math.min(1, t * 1.05 + 0.08)) + 0.015);
     }
     const side = new THREE.Vector3().crossVectors(dir, UP).normalize();
     // Twist the blade so it isn't perfectly flat
@@ -104,7 +104,8 @@ export function seagrassClump(seed, opts = {}) {
   const base = opts.base ?? [0.15, 0.3, 0.1], tip = opts.tip ?? [0.42, 0.6, 0.2];
   for (let b = 0; b < n; b++) {
     const ang = rnd() * Math.PI * 2, H = (opts.height ?? 0.4) * (0.6 + rnd() * 0.7);
-    const off = new THREE.Vector3(Math.cos(ang) * 0.06 * rnd(), 0, Math.sin(ang) * 0.06 * rnd());
+    const spread = opts.spread ?? 0.06, rr = spread * Math.sqrt(rnd()), aa = rnd() * Math.PI * 2;
+    const off = new THREE.Vector3(Math.cos(aa) * rr, 0, Math.sin(aa) * rr);
     const bend = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang)).multiplyScalar(0.15 + rnd() * 0.25);
     const pts = [], ws = [];
     for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(off.clone().add(new THREE.Vector3(bend.x * t * t * H, t * H * (1 - 0.15 * t), bend.z * t * t * H))); ws.push((opts.width ?? 0.008) * (1 - t * 0.4)); }

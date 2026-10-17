@@ -209,3 +209,5 @@ export const LOOKS = {
     swim: { freq: 3, amp: 0.4 },
   },
 };
+
+export const paint = { C, mix, sm, withEye, bars, spots, counter, finSolid, grain, hash };

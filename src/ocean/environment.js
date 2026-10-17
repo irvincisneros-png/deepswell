@@ -32,9 +32,13 @@ export class Environment {
     this.sun.position.copy(globalUniforms.uSunDir.value).multiplyScalar(100);
     this.fogAbove.set(w.skyHorizon); this.fogBelow.set(w.fog); this.fogDeep.set(w.fogDeep);
     this.fogDensityBelow = w.fogDensity;
+    globalUniforms.uCaustics.value = w.caustics ?? 1;
+    this.hemi.color.set(w.hemiSky ?? 0xbfe6ff); this.hemi.groundColor.set(w.hemiGround ?? 0x3a6a70);
+    this.envBelow = w.envBelow ?? 0.3;
     this.sun.color.set(w.sunColor ?? 0xfff2dd);
     this.sunBase = this.sun.intensity = w.sunIntensity ?? 2.6;
     this.hemiBase = this.hemi.intensity = w.ambient ?? 1.1;
+    this.fogDepthScale = w.fogDepthScale ?? 25;
     this.buildEnvMap();
     if (this.island) { this.scene.remove(this.island); this.island.geometry.dispose(); this.island = null; }
     if (eco.island) this.island = this.makeIsland(eco.island, eco.islandKind);
@@ -96,10 +100,10 @@ export class Environment {
         void main(){
           float n = fbm(vec2(vUv.x * 6.0 + vW.x * 0.05, uTime * 0.15 + vW.z * 0.05));
           float a = smoothstep(0.35, 0.8, n) * (1.0 - smoothstep(0.0, 1.0, abs(vUv.x - 0.5) * 2.0));
-          a *= smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.6, vUv.y);
+          a *= smoothstep(0.0, 0.45, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
           float dist = length(vW - uCam);
           a *= smoothstep(1.5, 5.0, dist) * (1.0 - smoothstep(18.0, 30.0, dist));
-          gl_FragColor = vec4(vec3(0.75, 0.95, 1.0), a * uOpacity * 0.16);
+          gl_FragColor = vec4(vec3(0.75, 0.95, 1.0), a * uOpacity * 0.075);
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
@@ -121,14 +125,14 @@ export class Environment {
     const u = depth > 0 ? 1 : 0;
     globalUniforms.uUnderwater.value = u;
     if (u) {
-      const k = Math.min(1, depth / 25);
+      const k = Math.min(1, depth / (this.fogDepthScale ?? 25));
       globalUniforms.uFogColor.value.copy(this.fogBelow).lerp(this.fogDeep, k);
       this.fog.color.copy(globalUniforms.uFogColor.value);
       this.fog.density = this.fogDensityBelow * (1 + k * 0.4);
       globalUniforms.uFogDensity.value = this.fog.density;
       this.scene.background = this.fog.color;
       this.renderer.toneMappingExposure = 0.85;
-      this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.6; this.scene.environmentIntensity = 0.3;
+      this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.6; this.scene.environmentIntensity = this.envBelow;
     } else {
       this.renderer.toneMappingExposure = 1.0;
       this.sun.intensity = this.sunBase; this.hemi.intensity = this.hemiBase; this.scene.environmentIntensity = 0.6;

@@ -19,6 +19,8 @@ import { Diver, buoyancyAt, pressureAt } from './dive/diver.js';
 import { evaluatePhoto, snapshot } from './learn/photo.js';
 import { Panels, esc } from './ui/panels.js';
 import { ECOSYSTEMS, PLANNED, ecoById } from './ecosystems/index.js';
+import { diveBoat } from './life/models2.js';
+import { patchUnderwater } from './ocean/shaders.js';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -77,6 +79,7 @@ class Game {
   async start() {
     const bar = $('#load-bar'), msg = $('#load-msg');
     await this.world.load(this.eco, (f, m) => { bar.style.width = `${f * 100}%`; msg.textContent = m; });
+    this.ensureBoat();
     this.renderer.compile(this.scene, this.camera);
     $('#loading').classList.remove('show');
     this.enterMenu();
@@ -108,6 +111,7 @@ class Game {
     $('#loading').classList.add('show'); $('#menu').classList.remove('show');
     this.surfSession = null;
     await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
+    this.ensureBoat();
     $('#loading').classList.remove('show');
     this.activeMission = null; this.updateMissionHUD();
     this.bindMenu();
@@ -174,12 +178,19 @@ class Game {
     this.surfSession = null;
     const s = this.eco.diveSpawn ?? { x: 0, z: -22 };
     if (!spawn) { spawn = new THREE.Vector3(s.x, s.y ?? -0.1, s.z); this.boardPos.set(s.x + 2, 0, s.z + 1); }
-    this.diver.spawn(spawn, Math.PI, breath);
+    this.diver.vehicle = this.eco.vehicle ?? null;
+    this.diver.ceiling = this.eco.ceiling;
+    this.diver.spawn(spawn, s.yaw ?? Math.PI, breath);
+    this.setupVehicle();
     this.surfer.root.visible = !!this.eco.surf; this.surfer.rider.visible = false; this.surfer.reset();
     this.input.wantLock = true;
     this.exitCameraMode();
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
-    this.setKeys([['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ...(this.eco.surf ? [['E', 'board']] : []), ['P', 'pause']]);
+    const sub = this.eco.vehicle === 'sub';
+    this.setKeys(sub
+      ? [['WASD', 'thrusters'], ['Space/C', 'ascend/descend'], ['Shift', 'boost'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', 'return to ship'], ['P', 'pause']]
+      : [['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', this.eco.surf ? 'board' : 'boat'], ['P', 'pause']]);
+    document.body.classList.toggle('sub-mode', sub);
     if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); this.audio.bubbles(14, 300); }
     else this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
     if (!this.panels.isOpen) this.lockSoon();
@@ -228,7 +239,41 @@ class Game {
     this.persist();
     for (const c of this.eco.lab.check(res)) this.checkMission('lab', c);
   }
+  /** Submersible lights / dive boat for sites that need them. */
+  setupVehicle() {
+    if (this.subLights) { this.camera.remove(this.subLights); this.subLights = null; }
+    if (this.eco.vehicle === 'sub') {
+      const g = new THREE.Group();
+      for (const x of [-0.6, 0.6]) {
+        const sp = new THREE.SpotLight(0xdff2ff, 26, 40, 0.5, 0.55, 2);
+        sp.position.set(x, -0.3, 0); sp.target.position.set(x * 0.3, -0.6, -10);
+        g.add(sp, sp.target);
+      }
+      const fill = new THREE.PointLight(0x9fc8ff, 3, 10, 2); fill.position.set(0, 0, -1); g.add(fill);
+      this.camera.add(g); this.subLights = g;
+      if (!this.camera.parent) this.scene.add(this.camera);
+    }
+  }
+  ensureBoat() {
+    if (!this.eco.boat) { if (this.boat) this.boat.visible = false; return; }
+    if (!this.boat) {
+      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
+      patchUnderwater(mat, { key: 'boat' });
+      this.boat = new THREE.Mesh(diveBoat(), mat);
+      this.scene.add(this.boat);
+    }
+    this.boat.visible = true;
+    this.boat.position.set(this.eco.boat.x, 0, this.eco.boat.z);
+  }
   tryBoard() {
+    if (this.eco.vehicle === 'sub') { this.toast('Surfacing the submersible — back to the research ship.'); setTimeout(() => this.enterMenu(), 600); return; }
+    if (!this.eco.surf) {
+      const b = this.eco.boat ?? { x: 0, z: 0 };
+      if (this.diver.depthNow > 0.6) { this.toast('Surface first, then signal the boat.'); return; }
+      this.diver.spawn(new THREE.Vector3(b.x + 3, -0.1, b.z + 2), this.diver.yaw, Math.max(this.diver.breath, 0.6));
+      this.toast('You climbed aboard the dive boat, rested and slipped back in. (Freedivers rest at the surface for at least twice as long as their dive.)');
+      return;
+    }
     const d = Math.hypot(this.diver.pos.x - this.boardPos.x, this.diver.pos.z - this.boardPos.z);
     if (this.diver.depthNow > 0.6) { this.toast(`Surface first. Your board is ${Math.round(d)} m away${this.boardDirection()}.`); return; }
     this.startSurf();
@@ -400,7 +445,7 @@ class Game {
     const surfaceY = this.world.surfaceAt(cam.x, cam.z);
     const depth = surfaceY - cam.y;
     this.env.update(dt, this.camera, depth);
-    this.world.ocean.update(this.camera);
+    this.world.ocean.update(this.camera, depth > 0);
     this.world.sky.update(this.camera);
     this.fx.update(dt, this.camera, 0);
     this.audio.update(dt, { under: depth > 0 ? 1 : 0, roar: this.roar ?? 0, depth });
@@ -496,6 +541,7 @@ class Game {
       this.surfer.root.rotation.set(Math.sin(this.time * 0.9) * 0.05, 0.6, Math.sin(this.time * 0.7) * 0.04);
     }
     this.world.waveMesh.update(null, this.time);
+    if (this.boat?.visible) { const b = this.boat; b.position.y = swellHeight(b.position.x, b.position.z, this.time) * 0.8 - 0.1; b.rotation.set(Math.sin(this.time * 0.8) * 0.03, 0.4, Math.sin(this.time * 0.6) * 0.04); }
     this.roar = 0;
     // Hover label
     if (this.frame % 5 === 0 && !paused) {
@@ -518,7 +564,8 @@ class Game {
     $('#pressure').textContent = `${pressureAt(d.depthNow ?? 0).toFixed(1)} atm`;
     $('#max-depth').textContent = Math.floor(d.maxDepth);
     const bu = buoyancyAt(d.depthNow ?? 0);
-    $('#buoy').textContent = (d.depthNow ?? 0) < 0.45 ? 'At the surface — breathing' : bu > 0.05 ? 'Buoyancy: floating up ↑' : bu < -0.05 ? 'Buoyancy: sinking ↓ (freefall)' : 'Buoyancy: neutral';
+    if (d.vehicle === 'sub') $('#buoy').textContent = `Water ~${(4 + 8 * Math.exp(-(d.depthNow - 150) / 250)).toFixed(0)} °C · sunlight ${d.depthNow < 200 ? 'faint' : 'none'}`;
+    else $('#buoy').textContent = (d.depthNow ?? 0) < 0.45 ? 'At the surface — breathing' : bu > 0.05 ? 'Buoyancy: floating up ↑' : bu < -0.05 ? 'Buoyancy: sinking ↓ (freefall)' : 'Buoyancy: neutral';
     const eq = $('#eq-prompt');
     eq.classList.toggle('hidden', d.ear < 0.35 && !d.earWarned);
     if (d.earWarned) {

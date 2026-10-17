@@ -38,8 +38,9 @@ export class Reef {
     scene.add(this.group);
     this.picks = []; // {x,y,z,r,id}
     this.meshes = [];
+    this.byKind = {}; // kind -> [{ im, mats }] for lab-driven visibility
     const rnd = mulberry32(seed);
-    const rules = [...eco.coral, ['rock', 160, (x, z) => eco.reefiness(x, z)]];
+    const rules = [...eco.coral, ...(eco.rocks === 0 ? [] : [['rock', eco.rocks ?? 160, (x, z) => eco.reefiness(x, z)]])];
     const b = eco.bounds;
     for (const [kind, count0, weightFn] of rules) {
       const gen = GENERATORS[kind];
@@ -58,7 +59,7 @@ export class Reef {
         const reef = eco.reefiness(x, z);
         const w = weightFn(x, z, h) * (kind === 'rock' ? 1 : 0.15 + reef);
         if (rnd() > w) continue;
-        if (h > -1.9) continue; // keep clear of the surface
+        if (h > (gen.maxH ?? -1.9) || h < (gen.minH ?? -1e9)) continue; // keep clear of the surface (unless the plant grows out of it)
         // Slope check — sit on reasonably flat ground.
         const e = 0.6;
         const sx = terrain.heightAt(x + e, z) - terrain.heightAt(x - e, z), sz = terrain.heightAt(x, z + e) - terrain.heightAt(x, z - e);
@@ -94,9 +95,19 @@ export class Reef {
         geo.setAttribute('aBleach', new THREE.InstancedBufferAttribute(bleach, 1));
         im.instanceMatrix.needsUpdate = true;
         im.computeBoundingSphere();
+        const mats = []; for (let i = 0; i < list.length; i++) { const mm = new THREE.Matrix4(); im.getMatrixAt(i, mm); mats.push(mm); }
+        (this.byKind[gen.as ?? kind] ??= []).push({ im, mats });
         this.group.add(im);
         this.meshes.push(im);
       });
+    }
+  }
+  /** Show only a fraction (0..1) of a habitat-forming kind, e.g. kelp lost to urchin barrens. */
+  setKindFraction(kind, f) {
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
+    for (const { im, mats } of this.byKind[kind] ?? []) {
+      mats.forEach((m, i) => im.setMatrixAt(i, ((i * 0.6180339) % 1) < f ? m : zero));
+      im.instanceMatrix.needsUpdate = true;
     }
   }
   dispose() {

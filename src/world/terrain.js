@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { patchUnderwater } from '../ocean/shaders.js';
 
 /** Canvas texture of fine grain + ripples, tiled across the seabed. */
-function makeDetailTexture(noise, kind = 'sand') {
+function makeDetailTexture(noise, kind = 'sand', ripple = 1) {
   const size = 256;
   const c = document.createElement('canvas'); c.width = c.height = size;
   const ctx = c.getContext('2d');
@@ -14,8 +14,8 @@ function makeDetailTexture(noise, kind = 'sand') {
     const nx = Math.cos(a) * 1.6, ny = Math.sin(a) * 1.6, nz = Math.cos(b) * 1.6, nw = Math.sin(b) * 1.6;
     const n = noise.n3(nx * 3 + nz * 0.7, ny * 3 + nw * 0.4, nz * 3 + nw * 3);
     const fine = noise.n3(nx * 14, ny * 14 + nw * 9, nz * 14);
-    const ripple = kind === 'sand' ? Math.sin((x / size) * Math.PI * 2 * 9 + n * 4) * 0.5 + 0.5 : 0.5;
-    let v = 0.78 + n * 0.12 + fine * 0.1 + (ripple - 0.5) * 0.12;
+    const rip = kind === 'sand' ? Math.sin((x / size) * Math.PI * 2 * 9 + n * 4) * 0.5 + 0.5 : 0.5;
+    let v = 0.78 + n * 0.12 + fine * 0.1 + (rip - 0.5) * 0.12 * ripple;
     v = Math.max(0, Math.min(1, v));
     const i = (y * size + x) * 4;
     img.data[i] = img.data[i + 1] = img.data[i + 2] = v * 255; img.data[i + 3] = 255;
@@ -58,7 +58,7 @@ export class Terrain {
       colors[i * 3] = r; colors[i * 3 + 1] = g; colors[i * 3 + 2] = b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const tex = makeDetailTexture(noise, eco.seabedKind ?? 'sand');
+    const tex = makeDetailTexture(noise, eco.seabedKind ?? 'sand', eco.ripple ?? 1);
     tex.repeat.set(size / 3.5, size / 3.5);
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true, map: tex, bumpMap: bumpFromTexture(tex), bumpScale: 1.5, roughness: 0.95, metalness: 0,

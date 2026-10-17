@@ -176,3 +176,8 @@ select { background: #0a3040; color: var(--ink); border: 1px solid var(--line); 
   .keys { display: none; }
   #surf-hud .speed { left: 16px; top: 120px; }
 }
+
+/* Submersible mode: porthole frame, no breath gauge */
+body.sub-mode .breath { display: none; }
+body.sub-mode #fx-vignette { background: radial-gradient(ellipse 62% 70% at center, transparent 72%, rgba(4, 10, 16, 0.92) 86%, #05090d 100%); }
+body.sub-mode #site-name::after { content: ' · Submersible'; color: var(--accent2); }

@@ -3,6 +3,8 @@ import * as THREE from 'three';
 import { buildFish, buildRay } from './fishModel.js';
 import { LOOKS } from './looks.js';
 import { anemone, cots, seaCucumber, turtle as buildTurtle, giantClam } from '../world/coral.js';
+import * as M2 from './models2.js';
+import * as FL from '../world/flora.js';
 import { patchUnderwater } from '../ocean/shaders.js';
 import { mulberry32, clamp } from '../core/noise.js';
 
@@ -30,7 +32,13 @@ export const BEHAVIOUR = {
   seacucumber: { type: 'crawl', speed: 0.01 },
 };
 export function registerBehaviour(id, b) { BEHAVIOUR[id] = b; }
-const STATIC_GEN = { anemone, cots, seacucumber: seaCucumber };
+const STATIC_GEN = {
+  anemone, cots, seacucumber: seaCucumber,
+  urchin: FL.urchin, abalone: FL.abalone, cunjevoi: FL.cunjevoi,
+  rocklobster: M2.rockLobster, octopus: M2.octopus, seahare: M2.seaHare, seahorse: M2.seahorse, seadragon: M2.seadragon,
+  crab: M2.crab, jellyfish: M2.jellyfish, bluebottle: M2.bluebottle, salp: M2.salpChain, siphonophore: M2.siphonophore,
+  combjelly: M2.combJelly, vampiresquid: M2.vampireSquid, isopod: M2.isopod, brittlestar: M2.brittleStar,
+};
 export function registerStatic(id, fn) { STATIC_GEN[id] = fn; }
 export function registerLook(id, look) { LOOKS[id] = look; }
 
@@ -77,6 +85,7 @@ export class Life {
     return new THREE.Vector3(0, this.terrain.heightAt(0, 30), 30);
   }
   randomReef(minDepth = -30, maxDepth = -2) {
+    if (this.eco.reefRange) [minDepth, maxDepth] = this.eco.reefRange;
     const b = this.eco.bounds;
     for (let i = 0; i < 300; i++) {
       const x = b.xMin + this.rnd() * (b.xMax - b.xMin), z = b.zMin + this.rnd() * (b.zMax - b.zMin);
@@ -92,7 +101,7 @@ export class Life {
     const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.35 : (look.rough ?? 0.55), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
     if (built.emissive) { mat.emissiveMap = built.emissive; mat.emissive = new THREE.Color(0xffffff); mat.emissiveIntensity = look.glowIntensity ?? 2.5; }
     if (look.transparent) { mat.transparent = true; mat.opacity = look.transparent; mat.depthWrite = false; }
-    patchUnderwater(mat, { swim: true, swimLength: built.length, flap: !!look.kind, waveK: look.kind ? 2.5 : (look.waveK ?? 6.0), vertical: !!look.vertical });
+    patchUnderwater(mat, { swim: true, swimLength: built.length, flap: !!look.kind || !!look.flap, waveK: look.kind ? 2.5 : (look.waveK ?? 6.0), vertical: !!look.vertical });
     const swim = new Float32Array(n * 2);
     built.geometry.setAttribute('aSwim', new THREE.InstancedBufferAttribute(swim, 2).setUsage(THREE.DynamicDrawUsage));
     const im = new THREE.InstancedMesh(built.geometry, mat, n);
@@ -106,9 +115,10 @@ export class Life {
   spawnSpecies(id, n) {
     const b = BEHAVIOUR[id] ?? { type: 'wander', radius: 8, speed: 0.3, alt: [1, 3], flee: 2 };
     const rnd = this.rnd;
-    if (b.type === 'turtle') { for (let i = 0; i < n; i++) this.spawnTurtle(i); return; }
+    if (b.type === 'turtle') { for (let i = 0; i < n; i++) this.spawnTurtle(i, id, b); return; }
     if (b.type === 'clam') { for (let i = 0; i < n; i++) this.spawnClam(i); return; }
-    if (b.type === 'static' || b.type === 'crawl') { this.spawnStatic(id, n, b); return; }
+    if (b.type === 'cloud') { this.spawnCloud(id, b); return; }
+    if (['static', 'crawl', 'drift', 'hover'].includes(b.type)) { this.spawnStatic(id, n, b); return; }
     const kind = this.makeInstanced(id, n);
     let groupHome = null, groupId = 0;
     const corals = b.nearCoral ? this.coralSpots(b.nearCoral) : [];
@@ -123,14 +133,18 @@ export class Life {
         if (i % b.groupSize === 0) {
           groupId++;
           const c = corals.length ? corals[Math.floor(rnd() * corals.length)] : null;
-          groupHome = b.type === 'vortex' ? new THREE.Vector3(-10 + rnd() * 20, 0, -62 + rnd() * 10) : c ? new THREE.Vector3(c.x, c.y, c.z) : this.randomReef(-12, -3);
-          groupHome.y = this.terrain.heightAt(groupHome.x, groupHome.z) + (b.alt[0] + b.alt[1]) / 2;
+          groupHome = b.at ? new THREE.Vector3(b.at[0] + (rnd() - 0.5) * (b.spread ?? 0), 0, b.at[1] + (rnd() - 0.5) * (b.spread ?? 0))
+            : b.type === 'vortex' ? new THREE.Vector3(-10 + rnd() * 20, 0, -62 + rnd() * 10) : c ? new THREE.Vector3(c.x, c.y, c.z) : this.randomReef(-12, -3);
+          groupHome.y = b.y !== undefined ? b.y : this.terrain.heightAt(groupHome.x, groupHome.z) + (b.alt[0] + b.alt[1]) / 2;
         }
         home = groupHome.clone();
       } else if (b.type === 'pair' && i % 2 === 1) {
         home = this.agents[this.agents.length - 1].home.clone();
       } else if (b.type === 'rest') {
         home = this.randomSand();
+      } else if (b.at) {
+        home = new THREE.Vector3(b.at[0] + (rnd() - 0.5) * (b.spread ?? 10), 0, b.at[1] + (rnd() - 0.5) * (b.spread ?? 10));
+        home.y = b.y !== undefined ? b.y + (rnd() - 0.5) * 2 : this.terrain.heightAt(home.x, home.z) + (b.alt ? (b.alt[0] + b.alt[1]) / 2 : 2);
       } else if (corals.length) {
         const c = corals[Math.floor(rnd() * corals.length)];
         home = new THREE.Vector3(c.x, c.y + 1, c.z);
@@ -138,7 +152,9 @@ export class Life {
         home = this.randomReef(-16, -3); home.y += 1.5;
       }
       const pos = home.clone().add(new THREE.Vector3((rnd() - 0.5) * 3, (rnd() - 0.2) * 1, (rnd() - 0.5) * 3));
-      if (b.type === 'patrol') pos.set(Math.cos(i * 2) * 30, -12, -45 + Math.sin(i * 2) * 25);
+      if (b.type === 'patrol') { const c = b.center ?? [0, -45]; pos.set(c[0] + Math.cos(i * 2) * 30, b.y ?? -12, c[1] + Math.sin(i * 2) * 25); }
+      if (b.type === 'migrate') pos.set(-120 + i * 25, b.y ?? -8, (b.lane ?? 0) + i * 6);
+      if (b.type === 'bird') pos.set(home.x, 4, home.z);
       if (b.type === 'manta') pos.set(-30, -8, -60);
       const a = {
         id, b, kind, index: i, home, pos, vel: new THREE.Vector3((rnd() - 0.5) * 0.2, 0, (rnd() - 0.5) * 0.2), dir: new THREE.Vector3(rnd() - 0.5, 0, rnd() - 0.5).normalize(),
@@ -146,16 +162,36 @@ export class Life {
         cleaning: false, grazing: false, threat: 0, radius: Math.max(0.18, kind.length * 0.55), visible: true, ang: rnd() * 6.28, orbit: 3 + rnd() * 4,
       };
       if (b.type === 'pair' && i % 2 === 1) a.leader = this.agents[this.agents.length - 1];
+      if (b.type === 'breather' || b.type === 'migrate') { a.state = 'cruise'; a.timer = (b.breathEvery ?? 40) * (0.3 + rnd()); }
       this.agents.push(a);
     }
   }
 
+  /** Plankton clouds: shimmering motes (no mesh) with an invisible pick target at the centre. */
+  spawnCloud(id, b) {
+    const n = Math.round((b.count ?? 1200));
+    const R = b.radius ?? 6;
+    const c = b.at ? new THREE.Vector3(b.at[0], b.y ?? -6, b.at[1]) : this.randomReef(-15, -3).add(new THREE.Vector3(0, 3, 0));
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const r = R * Math.cbrt(this.rnd()), th = this.rnd() * 6.283, ph = Math.acos(2 * this.rnd() - 1);
+      pos[i * 3] = c.x + r * Math.sin(ph) * Math.cos(th); pos[i * 3 + 1] = c.y + r * Math.cos(ph) * 0.6; pos[i * 3 + 2] = c.z + r * Math.sin(ph) * Math.sin(th);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: new THREE.Color(...(b.color ?? [0.5, 0.9, 0.5])), size: b.size ?? 0.05, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+    pts.frustumCulled = false;
+    this.group.add(pts);
+    this.agents.push({ id, b, pos: c, home: c.clone(), vel: new THREE.Vector3(), dir: new THREE.Vector3(1, 0, 0), radius: R * 0.45, scale: 1, static: true, cloud: pts, phase: 0 });
+  }
+
   spawnStatic(id, n, b) {
-    const gen = STATIC_GEN[id];
+    const gen = STATIC_GEN[b.gen ?? id];
     if (!gen) return;
-    const geo = gen(3 + n);
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7 });
-    patchUnderwater(mat, { sway: id === 'anemone' ? 0.9 : 0 });
+    const geo = gen(3 + n, b.opts ?? {});
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: b.rough ?? 0.7, side: b.doubleSide ? THREE.DoubleSide : THREE.FrontSide });
+    if (b.transparent) { mat.transparent = true; mat.opacity = b.transparent; mat.depthWrite = false; }
+    if (b.emissive) { mat.emissive = new THREE.Color(...b.emissive); mat.emissiveIntensity = b.emissiveIntensity ?? 1; }
+    patchUnderwater(mat, { sway: id === 'anemone' ? 0.9 : (b.sway ?? 0), pulse: !!b.pulse, key: 'st' + id });
     const im = new THREE.InstancedMesh(geo, mat, n);
     im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.group.add(im);
@@ -168,23 +204,47 @@ export class Life {
       else if (id === 'cots' && tables.length) {
         const c = tables[Math.floor(this.rnd() * tables.length)];
         pos = new THREE.Vector3(c.x + (this.rnd() - 0.5) * 0.4, c.y + c.r * 0.35, c.z + (this.rnd() - 0.5) * 0.4);
-      } else if (id === 'cots' || b.type === 'static') { pos = this.randomReef(-14, -3); }
+      } else if (b.place) pos = this.placeAt(b.place, b);
+      else if (id === 'cots' || b.type === 'static') { pos = this.randomReef(-14, -3); }
       else pos = this.randomSand();
       if (id === 'cots' && !tables.length) pos.y += 0.05;
-      const a = { id, b, kind, index: i, pos, home: pos.clone(), dir: new THREE.Vector3(Math.cos(i * 2.4), 0, Math.sin(i * 2.4)), vel: new THREE.Vector3(), scale: 0.85 + this.rnd() * 0.3, radius: id === 'anemone' ? 0.45 : 0.3, static: true, phase: 0 };
+      const sc = b.scale ? b.scale[0] + this.rnd() * (b.scale[1] - b.scale[0]) : 0.85 + this.rnd() * 0.3;
+      const a = { id, b, kind, index: i, pos, home: pos.clone(), dir: new THREE.Vector3(Math.cos(i * 2.4), 0, Math.sin(i * 2.4)), vel: new THREE.Vector3(), scale: sc, radius: (b.radius ?? (id === 'anemone' ? 0.45 : 0.3)), static: true, phase: this.rnd() * 6, timer: 0 };
       this.agents.push(a);
       this.writeMatrix(a);
     }
     im.instanceMatrix.needsUpdate = true;
   }
 
-  spawnTurtle(i) {
-    const rig = buildTurtle(10 + i);
+  /** Where to put a sessile/slow creature: eco-supplied placers first, then generic ones. */
+  placeAt(place, b) {
+    const custom = this.eco.placers?.[place];
+    if (custom) return custom(this.rnd, this.terrain, this);
+    const [d0, d1] = b.depth ?? [-14, -2];
+    if (place === 'sand') return this.randomSand();
+    if (place === 'water' || place === 'surface') {
+      const bd = this.eco.bounds;
+      const x = bd.xMin + this.rnd() * (bd.xMax - bd.xMin), z = bd.zMin + this.rnd() * (bd.zMax - bd.zMin);
+      const g = this.terrain.heightAt(x, z);
+      const y = place === 'surface' ? -0.04 : Math.max(g + 1.5, d0 + this.rnd() * (d1 - d0));
+      return new THREE.Vector3(x, y, z);
+    }
+    if (place.startsWith('coral:')) {
+      const spots = place.slice(6).split(',').flatMap(k => this.coralSpots(k));
+      if (spots.length) { const c = spots[Math.floor(this.rnd() * spots.length)]; return new THREE.Vector3(c.x + (this.rnd() - 0.5) * c.r, c.y + c.r * (b.onTop ?? 0.4), c.z + (this.rnd() - 0.5) * c.r); }
+    }
+    return this.randomReef(d0, d1);
+  }
+
+  spawnTurtle(i, id = 'turtle', b = BEHAVIOUR.turtle) {
+    const rig = buildTurtle(10 + i, b.colors);
     for (const m of rig.group.userData.materials) patchUnderwater(m);
     rig.group.scale.setScalar(1.0);
     this.group.add(rig.group);
     const pos = this.randomReef(-9, -3); pos.y += 2;
-    const a = { id: 'turtle', b: BEHAVIOUR.turtle, rig, pos, home: pos.clone(), vel: new THREE.Vector3(0.2, 0, 0), dir: new THREE.Vector3(1, 0, 0), phase: 0, timer: 20 + i * 25, state: 'cruise', target: pos.clone(), radius: 0.6, scale: 1 };
+    if (b.at) { pos.set(b.at[0] + (this.rnd() - 0.5) * 20, b.y ?? (this.terrain.heightAt(b.at[0], b.at[1]) + 1.5), b.at[1] + (this.rnd() - 0.5) * 20); }
+    rig.group.scale.setScalar(b.size ?? 1);
+    const a = { id, b, rig, pos, home: pos.clone(), vel: new THREE.Vector3(0.2, 0, 0), dir: new THREE.Vector3(1, 0, 0), phase: 0, timer: 20 + i * 25, state: 'cruise', target: pos.clone(), radius: 0.6 * (b.size ?? 1), scale: 1 };
     this.agents.push(a); this.rigs.push(a);
   }
   spawnClam(i) {
@@ -225,8 +285,14 @@ export class Life {
     for (const a of this.agents) {
       a.cleaning = false; a.grazing = false;
       if (a.state !== 'pose') a.roll = 0;
-      if (a.static && !a.rig) { if (a.b.type === 'crawl') this.crawl(a, dt); continue; }
-      if (a.rig) { a.id === 'turtle' ? this.updateTurtle(a, dt, dpos) : this.updateClam(a, dt, dpos, dvel, diverActive); continue; }
+      a.hunting = false;
+      if (a.static && !a.rig) {
+        if (a.b.type === 'crawl') this.crawl(a, dt);
+        else if (a.b.type === 'drift') this.drift(a, dt);
+        else if (a.b.type === 'hover') this.hover(a, dt);
+        continue;
+      }
+      if (a.rig) { a.b.type === 'turtle' ? this.updateTurtle(a, dt, dpos) : this.updateClam(a, dt, dpos, dvel, diverActive); continue; }
       const b = a.b;
       let desired = new THREE.Vector3();
       const sp = b.speed;
@@ -298,13 +364,18 @@ export class Life {
         case 'patrol': {
           a.ang += dt * sp / 32;
           const r = 30 + Math.sin(a.ang * 3 + a.index) * 6;
-          a.target.set(Math.cos(a.ang + a.index * 2) * r, 0, -45 + Math.sin(a.ang + a.index * 2) * r * 0.7);
-          a.target.y = Math.max(this.terrain.heightAt(a.target.x, a.target.z) + 2.5, -16);
+          const pc = b.center ?? [0, -45];
+          a.target.set(pc[0] + Math.cos(a.ang + a.index * 2) * r, 0, pc[1] + Math.sin(a.ang + a.index * 2) * r * 0.7);
+          a.target.y = Math.max(this.terrain.heightAt(a.target.x, a.target.z) + 2.5, b.y ?? -16);
           desired = this.seek(a, a.target, sp);
           if (a.threat > 0) desired.add(_w.subVectors(a.pos, dpos).setY(0).normalize().multiplyScalar(sp * a.threat * 1.5));
           break;
         }
         case 'manta': desired = this.mantaSteer(a, dt); break;
+        case 'baitball': desired = this.baitSteer(a, dt); break;
+        case 'hunter': desired = this.hunterSteer(a, dt); break;
+        case 'breather': case 'migrate': desired = this.breatherSteer(a, dt, dpos); break;
+        case 'bird': desired = this.birdSteer(a, dt); break;
         case 'rest': {
           a.timer -= dt;
           if (a.state !== 'glide' && a.threat > 0.3) {
@@ -322,7 +393,7 @@ export class Life {
         }
       }
       // Flee (except the hiders, which dive into coral, and the rest/host types handled above).
-      if (a.threat > 0 && dpos && !['host', 'rest', 'patrol', 'cleaner'].includes(b.type)) {
+      if (a.threat > 0 && dpos && !['host', 'rest', 'patrol', 'cleaner', 'migrate', 'bird', 'hunter'].includes(b.type)) {
         if (b.hide) desired.add(this.seek(a, a.home.clone().setY(this.terrain.heightAt(a.home.x, a.home.z) + 0.25), sp * 4 * a.threat));
         else desired.add(_w.subVectors(a.pos, dpos).normalize().multiplyScalar(sp * 3 * a.threat));
       }
@@ -330,7 +401,8 @@ export class Life {
       const ground = this.terrain.heightAt(a.pos.x, a.pos.z);
       const minAlt = b.type === 'rest' ? 0.04 : b.type === 'host' ? 0.1 : (b.alt?.[0] ?? 0.8) * 0.6;
       if (a.pos.y < ground + minAlt) desired.y += (ground + minAlt - a.pos.y) * 2;
-      if (a.pos.y > -0.8) desired.y -= (a.pos.y + 0.8) * 2;
+      const canSurface = b.type === 'bird' || ((b.type === 'breather' || b.type === 'migrate') && (a.state === 'ascend' || a.state === 'breathe'));
+      if (!canSurface && a.pos.y > -0.8) desired.y -= (a.pos.y + 0.8) * 2;
       const bd = this.eco.bounds;
       if (a.pos.x < bd.xMin - 15) desired.x += 0.5; if (a.pos.x > bd.xMax + 15) desired.x -= 0.5;
       if (a.pos.z < bd.zMin - 15) desired.z += 0.5; if (a.pos.z > bd.zMax + 15) desired.z -= 0.5;
@@ -357,6 +429,115 @@ export class Life {
       k.mesh.instanceMatrix.needsUpdate = true;
       if (k.swim) k.mesh.geometry.attributes.aSwim.needsUpdate = true;
     }
+  }
+
+  /** Jellies, salps, bluebottles: slow drifting with the current inside a home radius. */
+  drift(a, dt) {
+    const b = a.b;
+    a.phase += dt;
+    if (!a.wander || this.rnd() < dt * 0.1) a.wander = new THREE.Vector3(this.rnd() - 0.5, (this.rnd() - 0.5) * 0.3, this.rnd() - 0.5).normalize().multiplyScalar(b.speed ?? 0.08);
+    a.pos.addScaledVector(a.wander, dt);
+    if (a.pos.distanceTo(a.home) > (b.range ?? 12)) a.wander.copy(a.home).sub(a.pos).normalize().multiplyScalar(b.speed ?? 0.08);
+    if (b.place === 'surface') a.pos.y = -0.04;
+    else { const g = this.terrain.heightAt(a.pos.x, a.pos.z) + 1; if (a.pos.y < g) a.pos.y = g; if (a.pos.y > -0.6) a.pos.y = -0.6; }
+    a.dir.set(a.wander.x, 0, a.wander.z).normalize();
+    this.writeMatrix(a);
+    a.kind.mesh.instanceMatrix.needsUpdate = true;
+  }
+  /** Seahorses, seadragons: near-motionless bobbing (camouflaged). */
+  hover(a, dt) {
+    a.phase += dt;
+    a.pos.y = a.home.y + Math.sin(a.phase * 0.7) * 0.04;
+    a.pos.x = a.home.x + Math.sin(a.phase * 0.23) * (a.b.range ?? 0.15);
+    a.dir.set(Math.cos(a.phase * 0.1), 0, Math.sin(a.phase * 0.1));
+    this.writeMatrix(a);
+    a.kind.mesh.instanceMatrix.needsUpdate = true;
+  }
+  /** Bait ball: tight swirling sphere that bulges away from predators. */
+  baitSteer(a, dt) {
+    const c = this.ballCentre ??= a.home.clone();
+    if (a.index === 0) {
+      // Drift the ball slowly, pushed away from charging hunters.
+      c.x = a.home.x + Math.sin(this.time * 0.05) * 6; c.z = a.home.z + Math.cos(this.time * 0.043) * 6;
+      c.y = a.home.y + Math.sin(this.time * 0.11) * 1.2;
+    }
+    const r = _w.subVectors(a.pos, c);
+    const dist = r.length() || 1e-3;
+    const R = (a.b.radius ?? 2.2) * (0.6 + (a.index % 7) / 10);
+    const tangent = new THREE.Vector3(-r.z, (a.index % 3 - 1) * 0.2, r.x).normalize().multiplyScalar(a.b.speed);
+    const desired = tangent.add(r.clone().multiplyScalar((R - dist) / dist * 1.2));
+    for (const h of this.hunters ?? []) {
+      const d = a.pos.distanceTo(h.pos);
+      if (d < 2.5) { desired.add(_v.subVectors(a.pos, h.pos).normalize().multiplyScalar((2.5 - d) * 3)); if (h.state === 'charge') a.hunting = true; }
+    }
+    return desired;
+  }
+  /** Predators working a bait ball: circle, then charge through it. */
+  hunterSteer(a, dt) {
+    (this.hunters ??= new Set()).add(a);
+    const c = this.ballCentre ?? a.home;
+    a.timer -= dt;
+    if (a.state === 'idle' || !a.state) { a.state = 'circle'; a.timer = 3 + this.rnd() * 6; }
+    if (a.state === 'circle') {
+      a.ang += dt * a.b.speed / (a.orbit + 6);
+      a.target.set(c.x + Math.cos(a.ang + a.index) * (a.orbit + 6), c.y + Math.sin(a.ang * 2 + a.index) * 2, c.z + Math.sin(a.ang + a.index) * (a.orbit + 6));
+      if (a.timer <= 0) { a.state = 'charge'; a.timer = 4; a.chargeTo = c.clone().add(_v.subVectors(c, a.pos).setY(0).normalize().multiplyScalar(8)); }
+      return this.seek(a, a.target, a.b.speed);
+    }
+    // charge
+    if (a.pos.distanceTo(c) < 3) a.hunting = true;
+    if (a.timer <= 0 || a.pos.distanceTo(a.chargeTo) < 1) { a.state = 'circle'; a.timer = 4 + this.rnd() * 6; }
+    return this.seek(a, a.chargeTo, a.b.speed * 2.6);
+  }
+  /** Air-breathing animals: cruise (and maybe graze), then rise to the surface to breathe. */
+  breatherSteer(a, dt, dpos) {
+    const b = a.b;
+    a.timer -= dt;
+    if (a.state === 'cruise') {
+      if (b.type === 'migrate') {
+        a.target.set(a.pos.x + 20, b.y ?? -8, b.lane ?? 0);
+        if (a.pos.x > (this.eco.bounds.xMax + 60)) { a.pos.x = this.eco.bounds.xMin - 60; }
+      } else if (!a.target || a.pos.distanceTo(a.target) < 1.5 || this.rnd() < dt * 0.05) {
+        const r = b.radius ?? 20;
+        a.target.copy(a.home).add(new THREE.Vector3((this.rnd() - 0.5) * 2 * r, 0, (this.rnd() - 0.5) * 2 * r));
+        const g = this.terrain.heightAt(a.target.x, a.target.z);
+        a.target.y = b.graze ? g + 0.5 : (b.y ?? Math.min(-2, g + 3 + this.rnd() * 3));
+      }
+      if (b.graze && a.pos.y < this.terrain.heightAt(a.pos.x, a.pos.z) + 1.0) {
+        a.grazing = true;
+        if (this.rnd() < dt * 3) this.fx.sandPuff(a.pos.clone().addScaledVector(a.dir, a.kind.length * 0.45).setY(this.terrain.heightAt(a.pos.x, a.pos.z) + 0.1), 6, [0.6, 0.55, 0.45]);
+      }
+      if (a.timer <= 0) { a.state = 'ascend'; a.target.set(a.pos.x + a.dir.x * 6, -0.25, a.pos.z + a.dir.z * 6); }
+      return this.seek(a, a.target, b.speed);
+    }
+    if (a.state === 'ascend') {
+      if (a.pos.y > -0.6) { a.state = 'breathe'; a.timer = b.breathTime ?? 3; if (b.blow) this.fx.sprayBurst(a.pos.clone().setY(0.2), new THREE.Vector3(0, 1, 0), 30, 3); }
+      return this.seek(a, a.target, b.speed * 1.2);
+    }
+    if (a.state === 'breathe') {
+      if (a.timer <= 0) { a.state = 'cruise'; a.timer = (b.breathEvery ?? 40) * (0.7 + this.rnd() * 0.6); a.target.y = b.y ?? -6; }
+      return new THREE.Vector3(a.dir.x * b.speed * 0.4, 0, a.dir.z * b.speed * 0.4);
+    }
+    a.state = 'cruise';
+    return new THREE.Vector3();
+  }
+  /** Diving seabird: circles above, plunges into the bait ball, pops back up. */
+  birdSteer(a, dt) {
+    const c = this.ballCentre ?? a.home;
+    a.timer -= dt;
+    if (a.state !== 'plunge' && a.state !== 'rise') {
+      a.ang += dt * 0.5;
+      a.target.set(c.x + Math.cos(a.ang + a.index * 2) * 12, 4 + Math.sin(a.ang + a.index) * 1.5, c.z + Math.sin(a.ang + a.index * 2) * 12);
+      if (a.timer <= 0) { a.state = 'plunge'; a.timer = 3; }
+      return this.seek(a, a.target, 6);
+    }
+    if (a.state === 'plunge') {
+      if (a.pos.y < 0) a.hunting = true;
+      if (a.pos.y < c.y + 1 || a.timer <= 0) { a.state = 'rise'; a.timer = 3; }
+      return this.seek(a, c, 7);
+    }
+    if (a.pos.y > 1.5 || a.timer <= 0) { a.state = 'fly'; a.timer = 8 + this.rnd() * 10; }
+    return new THREE.Vector3(a.dir.x, 3, a.dir.z);
   }
 
   crawl(a, dt) {
@@ -476,16 +657,16 @@ export class Life {
     if (a.state === 'cruise') {
       if (a.pos.distanceTo(target) < 1.5) {
         target.copy(a.home).add(new THREE.Vector3((rnd() - 0.5) * 30, 0, (rnd() - 0.5) * 30));
-        target.y = this.terrain.heightAt(target.x, target.z) + 0.8 + rnd() * 2;
+        target.y = a.b.y !== undefined ? a.b.y + (rnd() - 0.5) * 3 : this.terrain.heightAt(target.x, target.z) + 0.8 + rnd() * 2;
       }
       if (a.timer <= 0) { a.state = 'ascend'; target.set(a.pos.x + a.dir.x * 4, -0.35, a.pos.z + a.dir.z * 4); }
     } else if (a.state === 'ascend') {
       if (a.pos.y > -0.6) { a.state = 'breathe'; a.timer = 4; }
     } else if (a.state === 'breathe') {
       a.cleaning = false;
-      if (a.timer <= 0) { a.state = 'cruise'; a.timer = 45 + rnd() * 40; target.copy(a.home); target.y = this.terrain.heightAt(target.x, target.z) + 1.5; }
+      if (a.timer <= 0) { a.state = 'cruise'; a.timer = 45 + rnd() * 40; target.copy(a.home); target.y = a.b.y ?? this.terrain.heightAt(target.x, target.z) + 1.5; }
     }
-    const desired = a.state === 'breathe' ? new THREE.Vector3(a.dir.x * 0.05, 0, a.dir.z * 0.05) : this.seek(a, target, a.b.speed);
+    const desired = a.state === 'breathe' ? new THREE.Vector3(a.dir.x * 0.05, 0, a.dir.z * 0.05) : this.seek(a, target, a.b.speed ?? 0.35);
     if (dpos && a.pos.distanceTo(dpos) < 2.2) desired.add(_w.subVectors(a.pos, dpos).normalize().multiplyScalar(0.4));
     const ground = this.terrain.heightAt(a.pos.x, a.pos.z);
     if (a.pos.y < ground + 0.6) desired.y += 0.5;

@@ -172,7 +172,8 @@ export class Ocean {
     if (box) h.set(box[0], box[1], box[2], box[3]);
   }
   setCalm(c) { this.calm = c; this.nearMat.uniforms.uCalm.value = c; this.far.material.uniforms.uCalm.value = c * 0.35; }
-  update(camera) {
+  update(camera, underwater = false) {
+    this.far.visible = !underwater && this.nearMat !== null;
     // Snap the near grid to its own spacing so swell doesn't swim under the camera.
     const step = 260 / this.near.geometry.parameters.widthSegments;
     this.near.position.set(Math.round(camera.position.x / step) * step, 0, Math.round(camera.position.z / step) * step);
