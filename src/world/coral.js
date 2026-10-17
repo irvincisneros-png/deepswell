@@ -2,6 +2,7 @@
 // 'color' attribute (vertex colours) in model space, base at y = 0.
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { seg } from './lod.js';
 import { makeNoise, mulberry32 } from '../core/noise.js';
 
 const noise = makeNoise(7);
@@ -27,7 +28,7 @@ function strip(geo) {
 /** Tapered tube from a to b. */
 function tube(a, b, r0, r1, radial, colA, colB) {
   const len = a.distanceTo(b);
-  const g = new THREE.CylinderGeometry(r1, r0, len, radial, 1, true);
+  const g = new THREE.CylinderGeometry(r1, r0, len, seg(radial), 1, true);
   g.translate(0, len / 2, 0);
   const dir = new THREE.Vector3().subVectors(b, a).normalize();
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(_up, dir));
@@ -36,7 +37,7 @@ function tube(a, b, r0, r1, radial, colA, colB) {
   return strip(g);
 }
 function cap(p, r, col) {
-  const g = new THREE.SphereGeometry(r, 6, 4);
+  const g = new THREE.SphereGeometry(r, seg(7), seg(5, 2));
   g.translate(p.x, p.y, p.z);
   colorize(g, () => col);
   return strip(g);
@@ -58,8 +59,10 @@ export function staghorn(seed, palette, opts = {}) {
   const grow = (p, dir, len, rad, depth, t0) => {
     const end = p.clone().addScaledVector(dir, len);
     const t1 = Math.min(1, t0 + 0.22);
-    parts.push(tube(p, end, rad, rad * 0.78, 5, lerp3(base, tip, t0 * 0.6), lerp3(base, tip, t1 * 0.6)));
-    if (depth <= 0 || end.y > 0.9) { parts.push(cap(end, rad * 0.85, tip)); return; }
+    const last = depth <= 0 || end.y > 0.9;
+    // Living Acropora tips (axial corallites) are paler and thinner than the older branch below.
+    parts.push(tube(p, end, rad, rad * (last ? 0.62 : 0.78), 6, lerp3(base, tip, t0 * 0.55), last ? tip : lerp3(base, tip, t1 * 0.55)));
+    if (last) { parts.push(cap(end, rad * 0.6, tip)); return; }
     const n = rnd() < 0.55 ? 2 : 1;
     for (let i = 0; i < n + (depth > 2 ? 1 : 0); i++) {
       const nd = dir.clone();
@@ -110,7 +113,7 @@ export function barrelSponge(seed) {
   const H = 0.6 + rnd() * 0.5;
   for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new THREE.Vector2(0.18 + 0.2 * Math.sin(t * 2.4) + (t > 0.92 ? -0.06 : 0), t * H)); }
   pts.push(new THREE.Vector2(0.12, H * 0.96));
-  let g = new THREE.LatheGeometry(pts, 26);
+  let g = new THREE.LatheGeometry(pts, seg(26, 8));
   g.deleteAttribute('uv');
   const p = g.attributes.position, v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); const a = Math.atan2(v.z, v.x); const rib = 1 + 0.06 * Math.abs(Math.sin(a * 9)); p.setXYZ(i, v.x * rib, v.y, v.z * rib); }
@@ -141,8 +144,9 @@ export function softTree(seed) {
 
 /** Polar plate surface helper (top + underside + rim). heightFn(r, theta) gives the top surface. */
 function plate(R, rad, heightFn, thick, colFn, rings = 9, segs = 44) {
+  rings = seg(rings, 4); segs = seg(segs, 12);
   const pos = [], col = [], idx = [];
-  const rOut = th => R * (1 + 0.13 * noise.n2(Math.cos(th) * 1.5 + rad, Math.sin(th) * 1.5));
+  const rOut = th => R * (1 + 0.13 * noise.n2(Math.cos(th) * 1.5 + rad, Math.sin(th) * 1.5) + 0.025 * noise.n2(Math.cos(th) * 9 + rad, Math.sin(th) * 9));
   for (let side = 0; side < 2; side++) {
     const off = pos.length / 3;
     for (let i = 0; i <= rings; i++) for (let j = 0; j <= segs; j++) {
@@ -172,21 +176,33 @@ function plate(R, rad, heightFn, thick, colFn, rings = 9, segs = 44) {
   return strip(g);
 }
 
+// Table Acropora (A. hyacinthus / cytherea): flat-topped colony on a short stalk. The top is a dense mat of tiny
+// upright branchlets (speckled), brown/green with a paler cream or blue growing margin that turns up slightly.
+const TABLE_PALETTES = [
+  { base: [0.42, 0.34, 0.2], edge: [0.86, 0.8, 0.62] },  // brown, cream edge
+  { base: [0.34, 0.4, 0.24], edge: [0.78, 0.84, 0.66] }, // olive green
+  { base: [0.4, 0.38, 0.3], edge: [0.66, 0.78, 0.9] },   // grey-brown, blue edge
+];
 export function tableCoral(seed) {
   const rnd = mulberry32(seed);
   const R = 0.7 + rnd() * 0.5, stalk = 0.3 + rnd() * 0.15;
-  const base = [0.45, 0.5, 0.3], edge = [0.85, 0.82, 0.7];
-  const top = plate(R, seed, (r, th, f) => stalk + 0.1 * f * f + 0.012 * Math.sin(th * 60 + f * 30) + noise.n2(r * 3 + seed, th) * 0.03, 0.05,
-    (f, th, side) => side ? [0.35, 0.3, 0.22] : lerp3(base, edge, Math.pow(f, 4)).map(v => v * (0.9 + 0.1 * Math.sin(th * 80))));
+  const { base, edge } = TABLE_PALETTES[seed % TABLE_PALETTES.length];
+  const speck = (r, th) => noise.n2(r * 40 + seed, th * 60) * 0.5 + noise.n2(r * 13, th * 17 + seed) * 0.5;
+  const top = plate(R, seed, (r, th, f) => stalk + 0.08 * f * f + 0.09 * Math.pow(f, 7) + 0.008 * speck(r, th) + noise.n2(r * 3 + seed, th) * 0.03, 0.05,
+    (f, th, side) => {
+      if (side) return [0.3, 0.26, 0.2];
+      const k = 0.78 + 0.32 * speck(f * R, th);
+      return lerp3(base, edge, Math.pow(f, 6)).map(v => v * k);
+    }, 14, 72);
   const s = new THREE.CylinderGeometry(0.06, 0.12, stalk, 8, 1);
   s.translate(0, stalk / 2, 0);
-  colorize(s, () => [0.4, 0.36, 0.28]);
+  colorize(s, () => [0.36, 0.32, 0.25]);
   return mergeGeometries([top, strip(s)]);
 }
 
 export function brainCoral(seed) {
   const rnd = mulberry32(seed);
-  let g = new THREE.SphereGeometry(0.5, 72, 36, 0, Math.PI * 2, 0, Math.PI * 0.55);
+  let g = new THREE.SphereGeometry(0.5, seg(72, 12), seg(36, 6), 0, Math.PI * 2, 0, Math.PI * 0.55);
   g.deleteAttribute('uv');
   g = mergeVertices(g);
   const p = g.attributes.position, v = new THREE.Vector3();
@@ -213,7 +229,7 @@ export function brainCoral(seed) {
 
 export function porites(seed) {
   const rnd = mulberry32(seed);
-  let g = new THREE.IcosahedronGeometry(1, 14);
+  let g = new THREE.IcosahedronGeometry(1, seg(14, 3));
   g.deleteAttribute('uv'); g.deleteAttribute('normal');
   g = mergeVertices(g);
   const p = g.attributes.position, v = new THREE.Vector3();
@@ -356,7 +372,7 @@ export function seaCucumber(seed) {
 
 /** Rubble / rock lumps for filling gaps. */
 export function rock(seed) {
-  let g = new THREE.IcosahedronGeometry(0.5, 8);
+  let g = new THREE.IcosahedronGeometry(0.5, seg(8, 2));
   g.deleteAttribute('uv'); g.deleteAttribute('normal');
   g = mergeVertices(g);
   const p = g.attributes.position, v = new THREE.Vector3();

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { staghorn, bushCoral, plateCoral, barrelSponge, softTree, tableCoral, brainCoral, porites, leatherCoral, seaFan, rock } from './coral.js';
 import { patchUnderwater } from '../ocean/shaders.js';
 import { mulberry32 } from '../core/noise.js';
+import { LOD } from './lod.js';
 
 const GENERATORS = {
   staghorn: { fn: staghorn, variants: 4, scale: [0.9, 1.6], radius: 0.9, sink: 0.05, rough: 0.7, cluster: 7 },
@@ -10,7 +11,7 @@ const GENERATORS = {
   platecoral: { fn: plateCoral, variants: 3, scale: [0.9, 1.6], radius: 0.6, sink: 0.04, rough: 0.75, cluster: 3, as: 'tablecoral' },
   sponge: { fn: barrelSponge, variants: 2, scale: [0.8, 1.6], radius: 0.4, sink: 0.03, rough: 0.9 },
   softtree: { fn: softTree, variants: 3, scale: [0.8, 1.5], radius: 0.4, sink: 0.02, rough: 0.6, sway: 0.35, cluster: 3, as: 'leathercoral' },
-  tablecoral: { fn: tableCoral, variants: 3, scale: [0.9, 1.5], radius: 1.1, sink: 0.05, rough: 0.75 },
+  tablecoral: { fn: tableCoral, variants: 3, scale: [0.9, 1.5], radius: 1.1, sink: 0.05, rough: 0.75, sat: 1.15 },
   braincoral: { fn: brainCoral, variants: 3, scale: [0.6, 1.6], radius: 0.5, sink: 0.05, rough: 0.8 },
   porites: { fn: porites, variants: 3, scale: [0.8, 2.4], radius: 0.95, sink: 0.12, rough: 0.85 },
   leathercoral: { fn: leatherCoral, variants: 2, scale: [0.8, 1.5], radius: 0.45, sink: 0.02, rough: 0.7, sway: 0.25 },
@@ -18,6 +19,7 @@ const GENERATORS = {
   rock: { fn: rock, variants: 3, scale: [0.6, 1.8], radius: 0.5, sink: 0.15, rough: 0.95 },
   // Temperate / other ecosystems register more generators via addGenerator().
 };
+const TILE = 16; // metres per culling tile
 export function addGenerator(name, def) { GENERATORS[name] = def; }
 
 /** Boost vertex-colour saturation: water strips colour with depth, so corals start out vivid. */
@@ -28,6 +30,26 @@ function saturate(geo, sat, val) {
     col.setRGB(c.getX(i), c.getY(i), c.getZ(i)); col.getHSL(hsl);
     col.setHSL(hsl.h, Math.min(1, hsl.s * sat), hsl.l * val);
     c.setXYZ(i, col.r, col.g, col.b);
+  }
+  return geo;
+}
+
+/**
+ * Baked ambient occlusion in the vertex colours: the core and base of a colony and the undersides of plates and
+ * branches get less skylight than the outer tips. Cheap (load time only) and works on every quality tier.
+ */
+function bakeAO(geo, strength = 1) {
+  const p = geo.attributes.position, n = geo.attributes.normal, c = geo.attributes.color;
+  if (!c || !n) return geo;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox, R = Math.max(1e-3, Math.max(-bb.min.x, bb.max.x, -bb.min.z, bb.max.z)), H = Math.max(1e-3, bb.max.y);
+  for (let i = 0; i < p.count; i++) {
+    const out = Math.hypot(p.getX(i), p.getZ(i)) / R, up = Math.max(0, p.getY(i)) / H;
+    const open = Math.min(1, Math.max(out, up * 0.9) * 1.25);          // how exposed this point is
+    const facing = 0.5 + 0.5 * n.getY(i);                              // 0 = facing the seabed
+    const ao = (0.5 + 0.5 * open * open * (3 - 2 * open)) * (0.62 + 0.38 * facing);
+    const k = 1 - (1 - ao) * strength;
+    c.setXYZ(i, c.getX(i) * k, c.getY(i) * k, c.getZ(i) * k);
   }
   return geo;
 }
@@ -45,8 +67,14 @@ export class Reef {
     for (const [kind, count0, weightFn] of rules) {
       const gen = GENERATORS[kind];
       if (!gen) continue;
-      const count = Math.round(count0 * quality.coralScale);
-      const geos = Array.from({ length: gen.variants }, (_, i) => saturate(gen.fn(1000 + i * 17 + seed), kind === 'rock' ? 1.1 : 1.45, kind === 'rock' ? 0.85 : 0.9));
+      // Rocks are collision obstacles: keep their density near the old ultra level so swimming stays easy on every tier.
+      const count = Math.round(count0 * (gen.fn === rock ? Math.min(1.5, quality.coralScale) : quality.coralScale));
+      const build = i => bakeAO(saturate(gen.fn(1000 + i * 17 + seed), gen.sat ?? (kind === 'rock' ? 1.1 : 1.45), kind === 'rock' ? 0.85 : 0.9), gen.ao ?? 1);
+      const geos = Array.from({ length: gen.variants }, (_, i) => build(i));
+      // The same colonies with fewer segments, drawn for distant tiles (identical shape: generators seed their own randomness).
+      LOD.k = 0.4;
+      const geosLo = Array.from({ length: gen.variants }, (_, i) => build(i));
+      LOD.k = 1;
       const placements = geos.map(() => []);
       let tries = 0;
       let cx = 0, cz = 0, left = 0;
@@ -72,43 +100,56 @@ export class Reef {
       geos.forEach((geo, vi) => {
         const list = placements[vi];
         if (!list.length) return;
-        const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: gen.rough, metalness: 0, side: gen.upright ? THREE.DoubleSide : THREE.FrontSide });
+        const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: gen.rough, metalness: 0, side: gen.upright || gen.doubleSide ? THREE.DoubleSide : THREE.FrontSide });
         // Only reef-building/soft corals with zooxanthellae bleach (not sea fans, sponges or rock).
-        patchUnderwater(mat, { coral: gen.bleaches ?? !['rock', 'seafan', 'sponge'].includes(kind), sway: gen.sway ?? 0, detail: true, detailScale: gen.detailScale ?? 38 });
-        const im = new THREE.InstancedMesh(geo, mat, list.length);
-        const bleach = new Float32Array(list.length);
-        const tint = new THREE.Color();
-        const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e3 = new THREE.Euler();
-        list.forEach((p, i) => {
+        patchUnderwater(mat, { coral: gen.bleaches ?? !['rock', 'seafan', 'sponge'].includes(kind), sway: gen.sway ?? 0, transl: gen.transl ?? 0, detail: true, detailScale: gen.detailScale ?? 38 });
+        const name = (gen.as ?? kind) + vi;
+        const q = new THREE.Quaternion(), e3 = new THREE.Euler();
+        // Per-instance data, generated in placement order (keeps the random stream identical).
+        const all = list.map((p, i) => {
           // Tilt slightly with the slope (except upright sea fans, which face into the current).
           e3.set(gen.upright ? 0 : -p.n[1] * 0.3, p.rot, gen.upright ? 0 : p.n[0] * 0.3);
           q.setFromEuler(e3);
-          m.compose(new THREE.Vector3(p.x, p.y, p.z), q, new THREE.Vector3(p.s, p.s * (0.85 + rnd() * 0.3), p.s));
-          im.setMatrixAt(i, m);
+          const m = new THREE.Matrix4().compose(new THREE.Vector3(p.x, p.y, p.z), q, new THREE.Vector3(p.s, p.s * (0.85 + rnd() * 0.3), p.s));
           // Colony-to-colony colour variation (hue shifts as well as brightness).
           const v = 0.8 + rnd() * 0.35, hueShift = rnd();
-          tint.setRGB(v * (hueShift < 0.33 ? 1.1 : 0.92), v * (hueShift > 0.66 ? 1.08 : 0.95), v * (hueShift > 0.33 && hueShift < 0.66 ? 1.12 : 0.9));
-          im.setColorAt(i, tint);
-          bleach[i] = 0.15 + rnd() * 0.8; // individual colony thresholds -> patchy bleaching
-          p.pick = kind !== 'rock' ? { x: p.x, y: p.y + gen.radius * p.s * 0.5, z: p.z, r: gen.radius * p.s * 0.8, id: gen.as ?? kind, kind: 'coral' } : null;
+          const tint = new THREE.Color(v * (hueShift < 0.33 ? 1.1 : 0.92), v * (hueShift > 0.66 ? 1.08 : 0.95), v * (hueShift > 0.33 && hueShift < 0.66 ? 1.12 : 0.9));
+          const bleach = 0.15 + rnd() * 0.8; // individual colony thresholds -> patchy bleaching
+          p.pick = kind !== 'rock' ? { x: p.x, y: p.y + gen.radius * p.s * 0.5, z: p.z, r: gen.radius * p.s * 0.8, id: gen.as ?? kind, kind: 'coral', soft: !!gen.soft } : null;
           if (p.pick) this.picks.push(p.pick);
+          return { p, m, tint, bleach, gi: i };
         });
-        geo.setAttribute('aBleach', new THREE.InstancedBufferAttribute(bleach, 1));
-        im.instanceMatrix.needsUpdate = true;
-        im.computeBoundingSphere();
-        const mats = []; for (let i = 0; i < list.length; i++) { const mm = new THREE.Matrix4(); im.getMatrixAt(i, mm); mats.push(mm); }
-        (this.byKind[gen.as ?? kind] ??= []).push({ im, mats, picks: list.map(p => p.pick) });
-        this.group.add(im);
-        this.meshes.push(im);
+        // Split into spatial tiles: each tile is its own InstancedMesh, so tiles off-screen, lost in the fog or
+        // outside the shadow box are skipped instead of drawing every colony on the site each frame.
+        const tiles = new Map();
+        for (const e of all) { const k = `${Math.floor(e.p.x / TILE)},${Math.floor(e.p.z / TILE)}`; if (!tiles.has(k)) tiles.set(k, []); tiles.get(k).push(e); }
+        const lo = geosLo[vi].attributes.position.count < geo.attributes.position.count * 0.8 ? geosLo[vi] : null;
+        for (const items of tiles.values()) {
+          const bleach = new THREE.InstancedBufferAttribute(Float32Array.from(items, e => e.bleach), 1);
+          let near = null;
+          for (const src of lo ? [geo, lo] : [geo]) {
+            const g = new THREE.BufferGeometry(); // shares the variant's vertex buffers; only the instance data differs
+            g.setIndex(src.index); for (const [k, at] of Object.entries(src.attributes)) g.setAttribute(k, at);
+            g.setAttribute('aBleach', bleach);
+            const im = new THREE.InstancedMesh(g, mat, items.length); im.name = name;
+            items.forEach((e, i) => { im.setMatrixAt(i, e.m); im.setColorAt(i, e.tint); });
+            im.instanceMatrix.needsUpdate = true;
+            im.computeBoundingSphere();
+            if (near) { near.userData.lo = im; im.userData.isLo = true; } else near = im;
+            (this.byKind[gen.as ?? kind] ??= []).push({ im, mats: items.map(e => e.m), ids: items.map(e => e.gi), picks: items.map(e => e.p.pick) });
+            this.group.add(im);
+            this.meshes.push(im);
+          }
+        }
       });
     }
   }
   /** Show only a fraction (0..1) of a habitat-forming kind, e.g. kelp lost to urchin barrens. */
   setKindFraction(kind, f) {
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (const { im, mats, picks } of this.byKind[kind] ?? []) {
+    for (const { im, mats, ids, picks } of this.byKind[kind] ?? []) {
       mats.forEach((m, i) => {
-        const show = ((i * 0.6180339) % 1) < f;
+        const show = ((ids[i] * 0.6180339) % 1) < f;
         im.setMatrixAt(i, show ? m : zero);
         if (picks[i]) picks[i].hidden = !show; // removed habitat can't be photographed, clicked or bumped into
       });
@@ -126,6 +167,16 @@ export class Reef {
         if (picks[i]) picks[i].hidden = !show;
       });
       im.instanceMatrix.needsUpdate = true;
+    }
+  }
+  /** Hide whole tiles beyond the visible range (underwater fog makes them invisible anyway). */
+  cull(camPos, range, lodRange = Infinity) {
+    for (const im of this.meshes) {
+      if (im.userData.isLo) continue;
+      const bs = im.boundingSphere, d = bs ? bs.center.distanceTo(camPos) - bs.radius : 0;
+      const inRange = d < range, lo = im.userData.lo;
+      im.visible = inRange && !(lo && d > lodRange);
+      if (lo) lo.visible = inRange && d > lodRange;
     }
   }
   dispose() {

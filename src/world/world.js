@@ -42,7 +42,7 @@ export class World {
     // Coarse spatial hash of coral colliders for the diver.
     this.grid = new Map();
     for (const p of this.reef.picks) {
-      if (p.r < 0.35) continue;
+      if (p.r < 0.35 || p.soft) continue; // swim through kelp and seagrass; bump into coral and rock
       const k = `${Math.floor(p.x / 6)},${Math.floor(p.z / 6)}`;
       if (!this.grid.has(k)) this.grid.set(k, []);
       this.grid.get(k).push({ center: new THREE.Vector3(p.x, p.y, p.z), r: p.r * 0.75, pick: p });

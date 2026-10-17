@@ -18,10 +18,10 @@ export function evaluatePhoto(camera, candidates, { groundAt, maxRange = 14, div
     if (groundAt && occluded(camera.position, c.pos, groundAt)) continue;
     const size = c.r / (dist * tanHalf); // fraction of half-frame height the subject fills
     const centre = Math.hypot(_v.x, _v.y);
-    // What you aim at wins: a tight centre cone first, animals over the coral behind them, then size.
+    // What you aim at wins: a tight centre cone first (an animal there beats the coral or kelp around it), then size.
     const aimed = centre < 0.22 + Math.min(0.15, size * 0.3);
     const animal = c.agent ? 1.8 : 1;
-    inFrame.push({ c, dist, size, centre, aimed, score: (aimed ? 10 : 0) + size * animal * (1 - 0.55 * centre) * (dist < 9 ? 1 : 0.6) });
+    inFrame.push({ c, dist, size, centre, aimed, score: (aimed ? (c.agent ? 20 : 10) : 0) + size * animal * (1 - 0.55 * centre) * (dist < 9 ? 1 : 0.6) });
   }
   inFrame.sort((a, b) => b.score - a.score);
   const best = inFrame[0];

@@ -6,8 +6,8 @@ const LAB = {
   pelagic: { upwelling: 1, warming: 0, years: 3 }, deep: { trawl: 0.8, years: 10 },
 };
 const report = {};
-for (const eco of ['gbr', 'rocky', 'seagrass', 'pelagic', 'deep']) {
-  const t = await launch({ query: `eco=${eco}`, outDir: `playtest-shots/all-${eco}` });
+for (const eco of (process.env.ECOS ?? 'gbr,rocky,seagrass,pelagic,deep').split(',')) {
+  const t = await launch({ query: `eco=${eco}${process.env.QUALITY ? `&quality=${process.env.QUALITY}` : ""}`, outDir: `playtest-shots/all-${eco}` });
   await t.click('#btn-dive'); await t.wait(1000);
   const ids = await t.page.evaluate(() => { const g = window.__game; return [...new Set(g.world.life.agents.filter(a => a.kind && !a.static).map(a => a.id))]; });
   await t.tap('KeyF');
@@ -22,7 +22,17 @@ for (const eco of ['gbr', 'rocky', 'seagrass', 'pelagic', 'deep']) {
       d.pos.copy(a.pos).add(off); d.vel.set(0, 0, 0);
       const v = a.pos.clone().sub(d.pos); d.yaw = Math.atan2(-v.x, -v.z); d.pitch = Math.atan2(v.y, Math.hypot(v.x, v.z));
     }, id);
-    await t.wait(200); await t.clickView(0); await t.wait(300);
+    await t.wait(200);
+    // Placement can land inside a rock and the diver gets pushed out: re-approach from where it ended up, then re-aim.
+    await t.page.evaluate(id => {
+      const g = window.__game, d = g.diver;
+      const a = g.world.life.agents.filter(a => a.id === id && a.visible !== false).sort((p, q) => p.pos.distanceTo(d.pos) - q.pos.distanceTo(d.pos))[0];
+      if (!a) return;
+      const L = Math.max(1.4, (a.kind?.length ?? 0.5) * 2.4);
+      if (d.pos.distanceTo(a.pos) > L * 1.3) d.pos.copy(a.pos).add(d.pos.clone().sub(a.pos).normalize().multiplyScalar(L));
+      const v = a.pos.clone().sub(d.pos); d.yaw = Math.atan2(-v.x, -v.z); d.pitch = Math.atan2(v.y, Math.hypot(v.x, v.z)); d.vel.set(0, 0, 0);
+    }, id);
+    await t.wait(80); await t.clickView(0); await t.wait(300);
     if (n++ < 3) await t.shot('photo-' + id);
   }
   await t.tap('KeyF');

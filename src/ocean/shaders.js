@@ -45,6 +45,19 @@ float causticPattern(vec2 p, float t) {
 }
 `;
 
+// Underwater "fog" seen in a direction: brighter toward the surface and the refracted sun, darker looking down.
+// Shared by lit materials, the sky dome and the underside of the water so everything fades into the same backdrop.
+export const uwFogGLSL = /* glsl */`
+vec3 uwFogColor(vec3 d, vec3 fogCol, vec3 sunDir) {
+  float up = d.y;
+  vec3 c = fogCol * (mix(0.62, 1.0, smoothstep(-0.75, 0.05, up)) + 0.5 * smoothstep(0.0, 1.0, up));
+  vec3 sd = normalize(vec3(sunDir.x * 0.6, sunDir.y, sunDir.z * 0.6)); // sun refracted toward the vertical
+  float s = max(dot(d, sd), 0.0);
+  c += fogCol * (pow(s, 5.0) * 0.45 + pow(s, 48.0) * 0.6);
+  return c;
+}
+`;
+
 export const noiseGLSL = /* glsl */`
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f*f*(3.0-2.0*f);
@@ -70,6 +83,7 @@ export function patchUnderwater(material, opts = {}) {
     if (opts.swim) vHead += 'attribute vec2 aSwim;\n';
     if (opts.coral) vHead += 'attribute float aBleach;\nvarying float vBleach;\n';
     if (opts.detail) vHead += 'varying vec3 vLocal;\n';
+    if (opts.fish) vHead += 'attribute vec2 aFin;\nvarying vec2 vFin;\n';
     shader.vertexShader = vHead + shader.vertexShader;
     let deform = '';
     if (opts.swim) {
@@ -114,6 +128,7 @@ export function patchUnderwater(material, opts = {}) {
     }
     if (opts.coral) deform += 'vBleach = aBleach;\n';
     if (opts.detail) deform += 'vLocal = position;\n';
+    if (opts.fish) deform += 'vFin = aFin;\n';
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + deform);
     shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 wpw = vec4(transformed, 1.0);
@@ -122,7 +137,7 @@ export function patchUnderwater(material, opts = {}) {
       #endif
       vWPos = (modelMatrix * wpw).xyz;`);
 
-    let fHead = `varying vec3 vWPos;\nuniform vec3 uWaterCol; uniform float uTime; uniform float uWaterLevel; uniform float uCaustics; uniform vec3 uAbsorb; uniform vec3 uSunDir; uniform float uBleach; uniform float uDead; uniform float uUnderwater;\n` + causticGLSL;
+    let fHead = `varying vec3 vWPos;\nuniform vec3 uWaterCol; uniform float uTime; uniform float uWaterLevel; uniform float uCaustics; uniform vec3 uAbsorb; uniform vec3 uSunDir; uniform float uBleach; uniform float uDead; uniform float uUnderwater;\n` + causticGLSL + uwFogGLSL;
     if (opts.coral) fHead += 'varying float vBleach;\n';
     if (opts.detail) fHead += `varying vec3 vLocal;
       float dHash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -130,7 +145,23 @@ export function patchUnderwater(material, opts = {}) {
         return mix(mix(mix(dHash(i), dHash(i+vec3(1,0,0)), f.x), mix(dHash(i+vec3(0,1,0)), dHash(i+vec3(1,1,0)), f.x), f.y),
                    mix(mix(dHash(i+vec3(0,0,1)), dHash(i+vec3(1,0,1)), f.x), mix(dHash(i+vec3(0,1,1)), dHash(i+vec3(1,1,1)), f.x), f.y), f.z); }
     `;
+    if (opts.fish) fHead += 'varying vec2 vFin;\n';
     shader.fragmentShader = fHead + shader.fragmentShader;
+    if (opts.fish) {
+      // Fins: bony rays from base to edge, thinning to a ragged, see-through margin (alpha-to-coverage with MSAA).
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        if (vFin.y >= 0.0) {
+          float nr = 16.0;
+          float ray = smoothstep(0.55, 1.0, abs(sin(vFin.x * nr * 3.14159)));
+          float edge = smoothstep(0.45, 1.0, vFin.y);
+          diffuseColor.rgb *= mix(1.0, 0.82, ray * (0.4 + 0.6 * vFin.y));
+          // Membrane between rays is thinner and recedes slightly at the margin (small notches), rays reach the edge.
+          diffuseColor.a = (1.0 - edge * mix(0.4, 0.1, ray)) * step(vFin.y, 0.96 + 0.04 * ray);
+        }`);
+      // Wet skin: glossy eyes, satin body, duller fins.
+      shader.fragmentShader = shader.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        if (vFin.y < -1.5) roughnessFactor = 0.06; else if (vFin.y >= 0.0) roughnessFactor = max(roughnessFactor, 0.6);`);
+    }
     if (opts.coral) {
       // Bleaching: patches turn white once stress passes each colony's threshold; dead coral greys and grows algae.
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
@@ -157,12 +188,18 @@ export function patchUnderwater(material, opts = {}) {
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       {
         float depth = uWaterLevel - vWPos.y;
+        ${opts.transl ? `{
+          // Thin blades glow when lit from behind (kelp, seagrass seen against the light).
+          vec3 wNt = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+          float back = max(-dot(wNt, uSunDir), 0.0);
+          float toward = pow(max(dot(normalize(vWPos - cameraPosition), uSunDir), 0.0), 2.0);
+          outgoingLight += diffuseColor.rgb * vec3(1.05, 1.0, 0.7) * back * (0.25 + 0.75 * toward) * ${opts.transl.toFixed(2)};
+        }` : ''}
         if (depth > 0.0) {
-          vec3 wN = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
-          float up = clamp(wN.y * 0.7 + 0.3, 0.0, 1.0);
           vec2 cp = vWPos.xz * 0.42 + uSunDir.xz * depth * 0.15;
           float c = causticPattern(cp, uTime * 0.55) * 0.75 + causticPattern(cp * 1.7 + 3.1, uTime * 0.7) * 0.35;
-          outgoingLight += diffuseColor.rgb * min(c, 1.4) * uCaustics * up * exp(-depth * 0.09) * 0.9;
+          // Caustics are focused sunlight: scale the direct sun term, so they fall off with the surface angle and vanish in shadow.
+          outgoingLight += reflectedLight.directDiffuse * min(c, 1.4) * uCaustics * exp(-depth * 0.09) * 1.5;
           outgoingLight *= exp(-uAbsorb * depth);
           if (uUnderwater < 0.5) {
             // Seen from above the surface: light travels back up through the water to the eye.
@@ -174,7 +211,22 @@ export function patchUnderwater(material, opts = {}) {
         }
       }
       #include <opaque_fragment>`);
+    // Underwater, light is lost along the line of sight too (red first), then scattered toward a
+    // direction-dependent backdrop colour instead of a single flat fog colour.
+    shader.fragmentShader = shader.fragmentShader.replace('#include <fog_fragment>', `
+      #if defined(USE_FOG) && defined(FOG_EXP2)
+        if (uUnderwater > 0.5) {
+          vec3 Vf = vWPos - cameraPosition; float fd = length(Vf);
+          gl_FragColor.rgb *= exp(-uAbsorb * fd * 0.25);
+          float ff = 1.0 - exp(-fogDensity * fogDensity * fd * fd);
+          gl_FragColor.rgb = mix(gl_FragColor.rgb, uwFogColor(Vf / max(fd, 1e-3), fogColor, uSunDir), ff);
+        } else {
+          #include <fog_fragment>
+        }
+      #else
+        #include <fog_fragment>
+      #endif`);
   };
-  material.customProgramCacheKey = () => 'uw' + (opts.key ?? '') + (opts.vertical ? 'v' : '') + (opts.pulse ? 'p' : '') + (opts.detail ? 'd' + (opts.detailScale ?? '') : '') + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
+  material.customProgramCacheKey = () => 'uw' + (opts.key ?? '') + (opts.vertical ? 'v' : '') + (opts.pulse ? 'p' : '') + (opts.detail ? 'd' + (opts.detailScale ?? '') : '') + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.transl ? 't' + opts.transl : '') + (opts.fish ? 'F' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
   return material;
 }

@@ -30,7 +30,7 @@ export function colorAt(x, z, h) {
   return [lerp(0.7, 0.42, g) + n, lerp(0.64, 0.46, g) + n, lerp(0.5, 0.3, g)];
 }
 
-addGenerator('zostera', { fn: s => FL.seagrassClump(s, { blades: 46, height: 0.45, spread: 0.65 }), variants: 4, scale: [0.9, 1.3], radius: 0.6, sink: 0, rough: 0.7, sway: 1.6, cluster: 8, bleaches: false, as: 'zostera', maxH: -0.5, minH: -3.4, detailScale: 30 });
+addGenerator('zostera', { fn: s => FL.seagrassClump(s, { blades: 46, height: 0.45, spread: 0.65 }), variants: 4, scale: [0.9, 1.3], radius: 0.6, sink: 0, rough: 0.7, sway: 1.6, cluster: 8, bleaches: false, as: 'zostera', maxH: -0.5, minH: -3.4, detailScale: 30, transl: 0.5, doubleSide: true, soft: true });
 addGenerator('halophila', { fn: FL.halophila, variants: 3, scale: [1, 2], radius: 0.3, sink: 0, rough: 0.7, cluster: 12, bleaches: false, as: 'halophila', maxH: -1.6, minH: -5.5 });
 addGenerator('mangrove', { fn: FL.mangroveTree, variants: 4, scale: [0.9, 1.4], radius: 1.2, sink: 0.2, rough: 0.8, bleaches: false, upright: true, as: 'greymangrove', maxH: 0.5, minH: -0.9, cluster: 4 });
 addGenerator('pneumatophores', { fn: FL.pneumatophores, variants: 3, scale: [1, 1.8], radius: 0.6, sink: 0.02, rough: 0.9, bleaches: false, as: 'greymangrove', maxH: 0.4, minH: -1.2, cluster: 6 });

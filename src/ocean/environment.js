@@ -9,7 +9,17 @@ export class Environment {
     this.sun = new THREE.DirectionalLight(0xfff2dd, 2.6);
     this.sun.position.copy(globalUniforms.uSunDir.value).multiplyScalar(100);
     this.hemi = new THREE.HemisphereLight(0xbfe6ff, 0x3a6a70, 1.1);
-    scene.add(this.sun, this.hemi);
+    scene.add(this.sun, this.hemi, this.sun.target);
+    if (quality.shadows) {
+      // A shadow box that follows the camera: sharp contact shadows near the player, none far away (fog hides it).
+      const sh = this.sun.shadow;
+      sh.mapSize.set(quality.shadows, quality.shadows);
+      Object.assign(sh.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 1, far: 160 });
+      sh.camera.updateProjectionMatrix();
+      sh.bias = -0.0004; sh.normalBias = 0.04; sh.radius = 2.5;
+      sh.intensity = 0.6; // water scatters plenty of light into shadows
+      this.shadowRange = 24;
+    }
     this.fog = new THREE.FogExp2(0xbfe6f5, 0.0012);
     scene.fog = this.fog;
     this.fogAbove = new THREE.Color(); this.fogBelow = new THREE.Color(); this.fogDeep = new THREE.Color();
@@ -142,6 +152,13 @@ export class Environment {
       globalUniforms.uFogColor.value.copy(this.fogBelow);
       globalUniforms.uFogDensity.value = this.fogDensityBelow;
       this.scene.background = null;
+    }
+    if (this.shadowRange) {
+      // Snap to shadow texels so edges don't crawl as the camera moves.
+      this.sun.castShadow = this.sunBase > 0;
+      const step = (this.shadowRange * 2) / this.sun.shadow.mapSize.x;
+      const t = this.sun.target.position.set(Math.round(camera.position.x / step) * step, Math.round(camera.position.y / step) * step, Math.round(camera.position.z / step) * step);
+      this.sun.position.copy(globalUniforms.uSunDir.value).multiplyScalar(80).add(t);
     }
     if (this.shafts) {
       this.shafts.visible = !!u && this.shaftsOn > 0;

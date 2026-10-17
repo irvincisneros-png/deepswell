@@ -1,6 +1,6 @@
 // Ocean surface (GPU swell), the breaking set-wave mesh (CPU profile) and the sky dome.
 import * as THREE from 'three';
-import { globalUniforms, skyGLSL, noiseGLSL } from './shaders.js';
+import { globalUniforms, uwFogGLSL, skyGLSL, noiseGLSL } from './shaders.js';
 import { SWELLS, PROFILE_N, sampleProfile, swellHeight } from './waveProfile.js';
 
 const swellGLSL = (() => {
@@ -72,6 +72,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
     }`;
   const fragmentShader = /* glsl */`
     ${skyGLSL}
+    ${uwFogGLSL}
     ${noiseGLSL}
     uniform float uTime; uniform sampler2D uDetail; uniform sampler2D uDepth; uniform vec4 uDepthBox;
     uniform vec3 uDeepTint; uniform vec3 uShallowTint; uniform vec3 uWaterTint; uniform vec3 uFogColor; uniform float uFogDensity;
@@ -139,7 +140,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
         col = mix(tir, sky, window);
         col = mix(col, vec3(0.75, 0.85, 0.85), foam * 0.6);
         float f = 1.0 - exp(-uFogDensity * length(cameraPosition - vWPos));
-        col = mix(col, uFogColor, f * 0.85);
+        col = mix(col, uwFogColor(-V, uFogColor, uSunDir), f * 0.85);
       }
       gl_FragColor = vec4(col, alpha);
       #include <tonemapping_fragment>
@@ -250,8 +251,8 @@ export class Sky {
     const mat = new THREE.ShaderMaterial({
       uniforms: { uSunDir: globalUniforms.uSunDir, uSkyTop: globalUniforms.uSkyTop, uSkyHorizon: globalUniforms.uSkyHorizon, uUnderwater: globalUniforms.uUnderwater, uFogColor: globalUniforms.uFogColor },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
-      fragmentShader: `${skyGLSL}\nuniform float uUnderwater; uniform vec3 uFogColor; varying vec3 vDir;
-        void main(){ vec3 c = skyColor(normalize(vDir)); c = mix(c, uFogColor, uUnderwater); gl_FragColor = vec4(c,1.0);
+      fragmentShader: `${skyGLSL}${uwFogGLSL}\nuniform float uUnderwater; uniform vec3 uFogColor; varying vec3 vDir;
+        void main(){ vec3 d = normalize(vDir); vec3 c = uUnderwater > 0.5 ? uwFogColor(d, uFogColor, uSunDir) : skyColor(d); gl_FragColor = vec4(c,1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         }`,

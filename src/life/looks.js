@@ -12,13 +12,15 @@ const grain = (u, s) => 0.94 + 0.06 * hash(Math.floor(u * 90), Math.floor(s * 40
 const counter = (top, bottom, k = 1) => (u, s) => mix(C(bottom), C(top), sm(-0.6 * k, 0.5 * k, s));
 
 function withEye(fn, eyeU = 0.86, eyeS = 0.3, r = 0.045, iris = 0x111111, ring = 0xd8c070) {
-  return (u, s, side) => {
+  const f = (u, s, side) => {
     const du = (u - eyeU), ds = (s - eyeS) * 0.55;
     const d = Math.hypot(du, ds);
     if (d < r * 0.6) return C(iris);
     if (d < r) return mix(C(ring), C(iris), 0.25);
     return fn(u, s, side);
   };
+  f.eye = { u: eyeU, s: eyeS, r }; // lets the model builder add a domed, glossy eyeball over the painted eye
+  return f;
 }
 /** Vertical bars: list of [uCentre, halfWidth, colour, edgeColour?, edgeWidth?] */
 function bars(base, list) {

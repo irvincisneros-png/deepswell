@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeNoise, mulberry32 } from '../core/noise.js';
+import { seg } from './lod.js';
 
 const noise = makeNoise(19);
 const UP = new THREE.Vector3(0, 1, 0);
@@ -19,7 +20,7 @@ function strip(geo) {
 }
 function tube(a, b, r0, r1, radial, colA, colB) {
   const len = a.distanceTo(b);
-  const g = new THREE.CylinderGeometry(r1, r0, len, radial, 1, true);
+  const g = new THREE.CylinderGeometry(r1, r0, len, seg(radial), 1, true);
   g.translate(0, len / 2, 0);
   const dir = new THREE.Vector3().subVectors(b, a).normalize();
   g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, dir));
@@ -45,6 +46,35 @@ function ribbon(points, widths, side, colFn) {
   return strip(g);
 }
 
+/**
+ * A leafy blade along a curve, several vertices across so it can have a raised midrib and ruffled edges.
+ * opts: across (verts across, odd), rib (midrib height, m), ruffle (edge wave amplitude, m), freq (edge waves per blade).
+ */
+function blade(points, widths, side, colFn, { across = 5, rib = 0.01, ruffle = 0.015, freq = 9, phase = 0 } = {}) {
+  across = seg(across, 2);
+  const pos = [], col = [], idx = [], n = new THREE.Vector3(), tan = new THREE.Vector3();
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i], w = widths[i], t = i / (points.length - 1);
+    tan.subVectors(points[Math.min(i + 1, points.length - 1)], points[Math.max(i - 1, 0)]).normalize();
+    n.crossVectors(side, tan).normalize();
+    const c = colFn(t);
+    for (let j = 0; j < across; j++) {
+      const s = (j / (across - 1)) * 2 - 1; // -1..1 across the blade
+      const lift = rib * (1 - Math.abs(s)) * (1 - t) + ruffle * s * s * Math.sin(t * freq * Math.PI + phase + s * 1.7) * Math.min(1, t * 4);
+      const q = p.clone().addScaledVector(side, s * w / 2).addScaledVector(n, lift);
+      pos.push(q.x, q.y, q.z);
+      const edge = 0.82 + 0.18 * (1 - Math.abs(s)); // edges slightly darker, midrib lighter
+      col.push(c[0] * edge, c[1] * edge, c[2] * edge);
+      if (i && j) { const a = (i - 1) * across + j - 1, b = a + across; idx.push(a, a + 1, b, a + 1, b + 1, b); }
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return strip(g);
+}
+
 /** Golden kelp (Ecklonia radiata): stipe topped by a strap-like frond with lateral blades. */
 export function kelp(seed) {
   const rnd = mulberry32(seed);
@@ -55,22 +85,26 @@ export function kelp(seed) {
   // Holdfast
   const hf = new THREE.SphereGeometry(0.07, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2); hf.scale(1.4, 0.6, 1.4);
   colorize(hf, () => [0.3, 0.22, 0.12]); parts.push(strip(hf));
-  const gold = [0.62, 0.45, 0.14], dark = [0.4, 0.27, 0.08];
+  // Ecklonia is golden- to olive-brown (fucoxanthin), darker and leathery toward the base of each blade.
+  const gold = [0.64, 0.45, 0.13], dark = [0.36, 0.24, 0.07];
   // Primary frond: blades fanning out from the stipe top, drooping.
   const blades = 11 + Math.floor(rnd() * 5);
   for (let b = 0; b < blades; b++) {
     const ang = rnd() * Math.PI * 2, len = 0.55 + rnd() * 0.45, rise = 0.15 + rnd() * 0.35;
     const dir = new THREE.Vector3(Math.cos(ang), 0, Math.sin(ang));
     const pts = [], ws = [];
-    for (let i = 0; i <= 8; i++) {
-      const t = i / 8;
+    const N = seg(12, 4);
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
       pts.push(stipeTop.clone().addScaledVector(dir, t * len).add(new THREE.Vector3(0, Math.sin(t * Math.PI * 0.8) * rise * len - t * t * 0.15, 0)));
-      ws.push(0.12 * Math.sin(Math.PI * Math.min(1, t * 1.05 + 0.08)) + 0.015);
+      ws.push(0.12 * Math.pow(Math.sin(Math.PI * Math.min(1, t * 1.05 + 0.08)), 0.7) + 0.012);
     }
     const side = new THREE.Vector3().crossVectors(dir, UP).normalize();
     // Twist the blade so it isn't perfectly flat
     side.applyAxisAngle(dir, (rnd() - 0.5) * 0.8);
-    parts.push(ribbon(pts, ws, side, t => lerp3(dark, gold, 0.3 + t * 0.7).map(c => c * (0.9 + 0.2 * Math.sin(t * 20 + b)))));
+    const tone = 0.85 + rnd() * 0.3;
+    parts.push(blade(pts, ws, side, t => lerp3(dark, gold, Math.min(1, 0.2 + t * 1.1)).map(c => c * tone * (0.92 + 0.12 * Math.sin(t * 23 + b))),
+      { rib: 0.012, ruffle: 0.012 + rnd() * 0.01, freq: 7 + rnd() * 5, phase: rnd() * 6 }));
   }
   return mergeGeometries(parts);
 }
@@ -186,7 +220,7 @@ export function vaseSponge(seed, opts = {}) {
   const H = (opts.height ?? 0.5) * (0.7 + rnd() * 0.6);
   for (let i = 0; i <= 10; i++) { const t = i / 10; pts.push(new THREE.Vector2(0.05 + (opts.flare ?? 0.18) * Math.pow(t, 0.8) + 0.02 * Math.sin(t * 9), t * H)); }
   pts.push(new THREE.Vector2(pts[10].x * 0.85, H * 0.97));
-  let g = new THREE.LatheGeometry(pts, 20);
+  let g = new THREE.LatheGeometry(pts, seg(20, 8));
   g.deleteAttribute('uv');
   const col = opts.colors ? opts.colors[seed % opts.colors.length] : [0.85, 0.55, 0.2];
   colorize(g, v => col.map(c => c * (0.75 + 0.35 * (v.y / H))));

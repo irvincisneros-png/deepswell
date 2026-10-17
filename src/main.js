@@ -37,6 +37,9 @@ class Game {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // Soft sun shadows (high/ultra only): grounds coral, rocks and animals on the seabed.
+    this.renderer.shadowMap.enabled = !!this.quality.shadows;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap; // PCF honours shadow.radius (PCFSoft ignores it)
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(70, 1, 0.05, 7000);
     this.input = new Input(canvas);
@@ -72,7 +75,9 @@ class Game {
 
   setupComposer() {
     if (!this.quality.bloom) { this.composer = null; return; }
-    this.composer = new EffectComposer(this.renderer);
+    // The composer renders into its own target: give it MSAA, otherwise high/ultra lose antialiasing entirely.
+    const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.quality.antialias ? 4 : 0 });
+    this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.35, 0.5, 0.86);
     this.composer.addPass(this.bloom);
@@ -88,7 +93,7 @@ class Game {
   async start() {
     const bar = $('#load-bar'), msg = $('#load-msg');
     await this.world.load(this.eco, (f, m) => { bar.style.width = `${f * 100}%`; msg.textContent = m; });
-    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco);
+    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco); this.setupShadows();
     this.renderer.compile(this.scene, this.camera);
     $('#loading').classList.remove('show');
     this.enterMenu();
@@ -120,7 +125,7 @@ class Game {
     $('#loading').classList.add('show'); $('#menu').classList.remove('show');
     this.surfSession = null;
     await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
-    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco);
+    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco); this.setupShadows();
     $('#loading').classList.remove('show');
     this.activeMission = null; this.updateMissionHUD();
     this.bindMenu();
@@ -273,6 +278,16 @@ class Game {
     L._lastR = null;
     L.apply(this, L.simulate(L.defaults, 0)[0]);
     if (this.panels.labState) delete this.panels.labState[this.eco.id];
+  }
+  /** high/ultra: every opaque lit object casts and receives sun shadows (water, sky and particles use their own shaders). */
+  setupShadows() {
+    if (!this.quality.shadows) return;
+    this.scene.traverse(o => {
+      const m = o.material;
+      if (!o.isMesh || !m || Array.isArray(m) || !m.isMeshStandardMaterial || m.transparent) return;
+      o.receiveShadow = true;
+      o.castShadow = o !== this.world.terrain?.mesh; // the big seabed mesh only receives (saves a full terrain draw)
+    });
   }
   ensureBoat() {
     if (!this.eco.boat) { if (this.boat) this.boat.visible = false; return; }
@@ -473,6 +488,9 @@ class Game {
     const depth = surfaceY - cam.y;
     this.env.update(dt, this.camera, depth);
     this.world.ocean.update(this.camera, depth > 0);
+    // Underwater, fog hides everything past ~2.6/density metres; above water the reef shows through to ~150 m.
+    // Beyond ~1/density metres, fog has softened colonies enough to swap in the low-detail versions.
+    this.world.reef?.cull(cam, depth > 0 ? 2.6 / this.env.fogDensityBelow + 4 : 150, depth > 0 ? 0.9 / this.env.fogDensityBelow : 40);
     this.world.sky.update(this.camera);
     this.fx.update(dt, this.camera, 0);
     this.audio.update(dt, { mode: this.mode, depth, camera: this.camera, roar: this.roar ?? 0, surf: this.mode === 'surf' ? this.surfSession : null, diver: this.diver, life: this.world.life, boat: this.boat, eco: this.eco, blackedOut: this.blackedOut, reefHealth: this.reefHealth ?? 1 });

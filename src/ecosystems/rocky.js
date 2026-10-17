@@ -49,8 +49,8 @@ export function colorAt(x, z, h, slope) {
 const inBarren = (x, z) => Math.hypot(x - BARREN.x, z - BARREN.z) < BARREN.r;
 
 // ---- Habitat-forming plants and sponges
-addGenerator('kelp', { fn: FL.kelp, variants: 5, scale: [1.0, 1.7], radius: 0.7, sink: 0.02, rough: 0.6, sway: 0.22, cluster: 16, bleaches: false, as: 'kelp', detailScale: 12 });
-addGenerator('crayweed', { fn: FL.crayweed, variants: 3, scale: [0.9, 1.4], radius: 0.6, sink: 0.02, rough: 0.6, sway: 0.12, cluster: 6, bleaches: false, as: 'crayweed', detailScale: 12 });
+addGenerator('kelp', { fn: FL.kelp, variants: 5, scale: [1.0, 1.7], radius: 0.7, sink: 0.02, rough: 0.6, sway: 0.22, cluster: 16, bleaches: false, as: 'kelp', detailScale: 12, sat: 1.05, transl: 0.6, doubleSide: true, soft: true });
+addGenerator('crayweed', { fn: FL.crayweed, variants: 3, scale: [0.9, 1.4], radius: 0.6, sink: 0.02, rough: 0.6, sway: 0.12, cluster: 6, bleaches: false, as: 'crayweed', detailScale: 12, sat: 1.1, transl: 0.5, doubleSide: true, soft: true });
 addGenerator('fingersponge', { fn: FL.fingerSponge, variants: 3, scale: [0.8, 1.6], radius: 0.35, sink: 0.02, rough: 0.9, bleaches: false, as: 'spongegarden', cluster: 4 });
 addGenerator('vasesponge', { fn: s => FL.vaseSponge(s, { colors: [[0.9, 0.6, 0.2], [0.8, 0.4, 0.3], [0.7, 0.65, 0.5]] }), variants: 3, scale: [0.8, 1.5], radius: 0.35, sink: 0.02, rough: 0.9, bleaches: false, as: 'spongegarden' });
 addGenerator('boulder', { fn: rock, variants: 3, scale: [1.6, 4.2], radius: 1.6, sink: 0.4, rough: 0.95, bleaches: false });

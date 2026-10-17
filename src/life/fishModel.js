@@ -81,7 +81,7 @@ export function buildFish(look) {
   const bodyLen = L * (1 - tailFrac);
   const depth = look.depth * L, width = look.width * L;
   const RINGS = 26, SEG = 18;
-  const pos = [], uv = [], idx = [];
+  const pos = [], uv = [], idx = [], fin = []; // fin: (k along fin base, 0 base..1 edge); body (0,-1); eye (0,-2)
   const x0 = -L / 2 + tailFrac * L;
   const superE = look.boxy ?? 2; // cross-section superellipse exponent
   const bodyX = t => x0 + t * bodyLen;
@@ -100,7 +100,7 @@ export function buildFish(look) {
       const y = Math.sign(c) * Math.pow(Math.abs(c), ex) * hh - yOff * (c < 0 ? 1 : 0);
       const z = Math.sign(sn) * Math.pow(Math.abs(sn), ex) * ww;
       pos.push(bodyX(t), y, z);
-      uv.push(t, 1 - (s / SEG) * 0.75);
+      uv.push(t, 1 - (s / SEG) * 0.75); fin.push(0, -1);
     }
   }
   for (let r = 0; r < RINGS; r++) for (let s = 0; s < SEG; s++) {
@@ -113,8 +113,8 @@ export function buildFish(look) {
     for (let i = 0; i <= n; i++) {
       const k = i / n;
       const b = base(k), e = edge(k);
-      pos.push(b[0], b[1], b[2]); uv.push(uOf(k), 1 - (0.75 + (vBand + 0.02) * 0.25));
-      pos.push(e[0], e[1], e[2]); uv.push(uOf(k), 1 - (0.75 + (vBand + 0.23) * 0.25));
+      pos.push(b[0], b[1], b[2]); uv.push(uOf(k), 1 - (0.75 + (vBand + 0.02) * 0.25)); fin.push(k, 0);
+      pos.push(e[0], e[1], e[2]); uv.push(uOf(k), 1 - (0.75 + (vBand + 0.23) * 0.25)); fin.push(k, 1);
     }
     for (let i = 0; i < n; i++) {
       const a = start + i * 2;
@@ -184,9 +184,41 @@ export function buildFish(look) {
       k => { const tipK = 1 - k; return [bx - pecL * (0.45 + 0.55 * k) - wing * pecL * (0.25 + 0.35 * k), by + (k - 0.5) * pecL * 0.12 - pecL * 0.2 - wing * pecL * 0.15, wz + side * pecL * (0.3 + wing * 1.05) * (0.45 + 0.55 * tipK)]; },
       4, 0.75, k => t0);
   }
+  // Eyes: a shallow glossy dome over each painted eye, its UVs wrapped onto the painted iris and ring.
+  const eye = look.paint.body?.eye;
+  if (eye && !look.noEyeDome) {
+    const t = eye.u, prof = bodyProfile(t, look), ex = 2 / superE;
+    const hh = depth * 0.5 * prof, ww = width * 0.5 * prof;
+    const re = eye.r * bodyLen * 0.85, R = 6, S = 12;
+    for (const side of [1, -1]) {
+      const phi0 = side > 0 ? Math.acos(Math.max(-1, Math.min(1, eye.s))) : TAU - Math.acos(Math.max(-1, Math.min(1, eye.s)));
+      const c = Math.cos(phi0), sn = Math.sin(phi0);
+      const cy = Math.sign(c) * Math.pow(Math.abs(c), ex) * hh, cz = Math.sign(sn) * Math.pow(Math.abs(sn), ex) * ww;
+      const nrm = new THREE.Vector3(0, cy / Math.max(1e-4, hh * hh), cz / Math.max(1e-4, ww * ww)).normalize();
+      const tu = new THREE.Vector3(1, 0, 0), tv = new THREE.Vector3().crossVectors(nrm, tu).normalize();
+      const centre = new THREE.Vector3(bodyX(t), cy, cz).addScaledVector(nrm, -re * 0.25);
+      const start = pos.length / 3;
+      for (let i = 0; i <= R; i++) {
+        const rho = i / R, a = rho * Math.PI * 0.42; // spherical cap
+        for (let j = 0; j <= S; j++) {
+          const th = (j / S) * TAU;
+          const p = centre.clone().addScaledVector(nrm, Math.cos(a) * re).addScaledVector(tu, Math.sin(a) * re * Math.cos(th)).addScaledVector(tv, Math.sin(a) * re * Math.sin(th));
+          pos.push(p.x, p.y, p.z);
+          const k = rho * eye.r * 1.15, ss = Math.max(-1, Math.min(1, eye.s + (k * Math.sin(th) * side) / 0.55));
+          const ph = side > 0 ? Math.acos(ss) : TAU - Math.acos(ss);
+          uv.push(eye.u + k * Math.cos(th), 1 - (ph / TAU) * 0.75); fin.push(0, -2);
+        }
+      }
+      for (let i = 0; i < R; i++) for (let j = 0; j < S; j++) {
+        const a = start + i * (S + 1) + j, b = a + S + 1;
+        if (side > 0) idx.push(a, b, a + 1, a + 1, b, b + 1); else idx.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+    }
+  }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  geo.setAttribute('aFin', new THREE.Float32BufferAttribute(fin, 2));
   geo.setIndex(idx);
   geo.computeVertexNormals();
   return { geometry: geo, texture: paintSkin(look), emissive: look.paint.glow ? paintGlow(look) : null, length: L };

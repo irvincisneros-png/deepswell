@@ -70,7 +70,10 @@ export class Life {
     this.visit = { client: null, cooldown: 4 };
     this.population = 1; // health-lab scaling of fish abundance
     for (const [id, n0] of Object.entries(eco.life)) {
-      const n = Math.max(1, Math.round(n0 * (n0 > 20 ? quality.fishScale : 1)));
+      // Schools scale with the tier; common reef fish (4–20) get denser too. Rare animals, hosts and statics stay as set.
+      const t = BEHAVIOUR[id]?.type ?? 'wander';
+      const k = n0 > 20 ? quality.fishScale : n0 >= 4 && ['wander', 'grazer', 'pair', 'patrol', 'school'].includes(t) ? quality.reefFish ?? 1 : 1;
+      const n = Math.max(1, Math.round(n0 * k));
       this.spawnSpecies(id, n);
     }
   }
@@ -98,10 +101,11 @@ export class Life {
   makeInstanced(id, n) {
     const look = LOOKS[id];
     const built = look.kind ? buildRay(look) : buildFish(look);
-    const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.35 : (look.rough ?? 0.55), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
+    const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.3 : (look.rough ?? 0.42), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
+    if (!look.kind && !look.transparent) mat.alphaToCoverage = true; // soft fin edges (needs MSAA; otherwise fins are simply opaque)
     if (built.emissive) { mat.emissiveMap = built.emissive; mat.emissive = new THREE.Color(0xffffff); mat.emissiveIntensity = look.glowIntensity ?? 2.5; }
     if (look.transparent) { mat.transparent = true; mat.opacity = look.transparent; mat.depthWrite = false; }
-    patchUnderwater(mat, { swim: true, swimLength: built.length, flap: !!look.kind || !!look.flap, waveK: look.kind ? 2.5 : (look.waveK ?? 6.0), vertical: !!look.vertical });
+    patchUnderwater(mat, { fish: !look.kind, swim: true, swimLength: built.length, flap: !!look.kind || !!look.flap, waveK: look.kind ? 2.5 : (look.waveK ?? 6.0), vertical: !!look.vertical });
     const swim = new Float32Array(n * 2);
     built.geometry.setAttribute('aSwim', new THREE.InstancedBufferAttribute(swim, 2).setUsage(THREE.DynamicDrawUsage));
     const im = new THREE.InstancedMesh(built.geometry, mat, n);
