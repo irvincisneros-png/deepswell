@@ -20,6 +20,7 @@ export function guessTier() {
     const c = document.createElement('canvas');
     const gl = c.getContext('webgl2');
     if (!gl) return 'low';
+    if (matchMedia('(pointer: coarse)').matches) return 'low'; // phones/tablets: cooler and smoother (adaptive resolution still applies)
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const r = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)).toLowerCase() : '';
     const cores = navigator.hardwareConcurrency || 4;

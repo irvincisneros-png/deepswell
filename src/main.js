@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { Input } from './core/input.js';
 import { Audio } from './audio/index.js';
+import { TouchControls, detectTouch } from './ui/touch.js';
 import { loadSettings, saveSettings, TIERS } from './core/settings.js';
 import { loadProgress, saveProgress, resetProgress, progressCSV } from './core/save.js';
 import { globalUniforms } from './ocean/shaders.js';
@@ -63,7 +64,10 @@ class Game {
     const wake = () => this.audio.start();
     addEventListener('pointerdown', wake, true); addEventListener('keydown', wake, true);
     // Soft tick for every button.
-    document.addEventListener('click', e => { if (e.target.closest?.('button:not([disabled])')) this.audio.play('click'); }, true);
+    document.addEventListener('click', e => { if (e.target.closest?.('button:not([disabled])') && !e.target.closest('#touch')) this.audio.play('click'); }, true);
+    // Phones / tablets: on-screen joystick, look-drag and buttons.
+    this.touch = detectTouch() ? new TouchControls(this) : null;
+    if (this.touch) $('.vf-info').innerHTML = '📷 Tap to shoot · 📷 exit · <span id="vf-subject"></span>';
   }
 
   setupComposer() {
@@ -414,12 +418,14 @@ class Game {
     if (this.lastToast === text && now - this.lastToastT < 4000) return; // no duplicate spam
     this.lastToast = text; this.lastToastT = now;
     const el = document.createElement('div');
-    el.className = `toast ${kind}`; el.textContent = text;
+    el.className = `toast ${kind}`; el.textContent = this.hint(text);
     if (kind === 'warn') this.audio.play('warn');
     box.appendChild(el);
     while (box.children.length > 2) box.firstChild.remove();
     setTimeout(() => el.remove(), 4200 + text.length * 35);
   }
+  /** Keyboard hints become button names on touch devices. */
+  hint(text) { return this.touch ? this.touch.label(text) : text; }
   showTrick(name, pts) {
     const el = document.createElement('div');
     el.className = 'trick'; el.innerHTML = `${esc(name)}<span>+${pts}</span>`;
@@ -471,6 +477,7 @@ class Game {
     this.fx.update(dt, this.camera, 0);
     this.audio.update(dt, { mode: this.mode, depth, camera: this.camera, roar: this.roar ?? 0, surf: this.mode === 'surf' ? this.surfSession : null, diver: this.diver, life: this.world.life, boat: this.boat, eco: this.eco, blackedOut: this.blackedOut, reefHealth: this.reefHealth ?? 1 });
     $('#fx-uw').style.opacity = depth > 0 ? 1 : 0;
+    this.touch?.update();
     if (skipRender) { this.input.endFrame(); return; }
     if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
     if (this.pendingPhoto) { const img = snapshot(this.renderer.domElement); this.storePhoto(this.pendingPhoto, img); this.pendingPhoto = null; }
@@ -515,7 +522,7 @@ class Game {
     const pr = $('#prompt');
     const text = s.state === 'wipeout' ? 'WIPEOUT!' : s.msgTimer > 0 ? s.msg : s.prompt;
     if (s.msgTimer > 0) s.msgTimer -= dt;
-    pr.textContent = text || '';
+    pr.textContent = this.hint(text) || '';
     pr.classList.toggle('hot', /POP UP|WIPEOUT/.test(text || ''));
     // Face position (where you are between the base and the lip) + lip danger while riding
     const fm = $('#face-meter');
@@ -593,8 +600,8 @@ class Game {
     eq.classList.toggle('hidden', d.ear < 0.35 && !d.earWarned);
     if (d.earWarned) {
       const need = Math.max(0, (d.depthNow ?? 0) - ((d.painDepth ?? 0) - 0.8));
-      eq.innerHTML = need > 0 ? `Ear pain — rise <b>${need.toFixed(1)} m</b> (Space), then equalise` : 'Now equalise gently: <kbd>Q</kbd>';
-    } else eq.innerHTML = 'Ears filling with pressure — equalise: <kbd>Q</kbd>';
+      eq.innerHTML = this.hint(need > 0 ? `Ear pain — rise <b>${need.toFixed(1)} m</b> (Space), then equalise` : 'Now equalise gently: <kbd>Q</kbd>');
+    } else eq.innerHTML = this.hint('Ears filling with pressure — equalise: <kbd>Q</kbd>');
     const v = 0.3 + (d.breath < 0.3 ? (0.3 - d.breath) * 2.2 : 0) + Math.min(0.4, d.ear * 0.2);
     $('#fx-vignette').style.setProperty('--v', v.toFixed(2));
     if (d.breath < 0.3 && !paused) {
