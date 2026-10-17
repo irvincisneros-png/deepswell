@@ -69,6 +69,7 @@ export function patchUnderwater(material, opts = {}) {
     let vHead = `varying vec3 vWPos;\nuniform float uTime; uniform float uSwimLen; uniform float uSway;\n`;
     if (opts.swim) vHead += 'attribute vec2 aSwim;\n';
     if (opts.coral) vHead += 'attribute float aBleach;\nvarying float vBleach;\n';
+    if (opts.detail) vHead += 'varying vec3 vLocal;\n';
     shader.vertexShader = vHead + shader.vertexShader;
     let deform = '';
     if (opts.swim) {
@@ -99,6 +100,7 @@ export function patchUnderwater(material, opts = {}) {
       `;
     }
     if (opts.coral) deform += 'vBleach = aBleach;\n';
+    if (opts.detail) deform += 'vLocal = position;\n';
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + deform);
     shader.vertexShader = shader.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
       vec4 wpw = vec4(transformed, 1.0);
@@ -109,6 +111,12 @@ export function patchUnderwater(material, opts = {}) {
 
     let fHead = `varying vec3 vWPos;\nuniform vec3 uWaterCol; uniform float uTime; uniform float uWaterLevel; uniform float uCaustics; uniform vec3 uAbsorb; uniform vec3 uSunDir; uniform float uBleach; uniform float uDead; uniform float uUnderwater;\n` + causticGLSL;
     if (opts.coral) fHead += 'varying float vBleach;\n';
+    if (opts.detail) fHead += `varying vec3 vLocal;
+      float dHash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+      float dNoise(vec3 x){ vec3 i = floor(x), f = fract(x); f = f*f*(3.0-2.0*f);
+        return mix(mix(mix(dHash(i), dHash(i+vec3(1,0,0)), f.x), mix(dHash(i+vec3(0,1,0)), dHash(i+vec3(1,1,0)), f.x), f.y),
+                   mix(mix(dHash(i+vec3(0,0,1)), dHash(i+vec3(1,0,1)), f.x), mix(dHash(i+vec3(0,1,1)), dHash(i+vec3(1,1,1)), f.x), f.y), f.z); }
+    `;
     shader.fragmentShader = fHead + shader.fragmentShader;
     if (opts.coral) {
       // Bleaching: patches turn white once stress passes each colony's threshold; dead coral greys and grows algae.
@@ -117,6 +125,21 @@ export function patchUnderwater(material, opts = {}) {
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.93, 0.9), bl * 0.92);
         float dd = smoothstep(vBleach - 0.1, vBleach + 0.1, uDead);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.32, 0.33, 0.2) * (0.8 + 0.4 * sin(vWPos.x * 3.1) * sin(vWPos.z * 2.7)), dd * 0.9);`);
+    }
+    if (opts.detail) {
+      // Polyp/texture micro-relief: perturb the normal with world-space noise, and darken crevices near the base.
+      shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        {
+          float f = ${(opts.detailScale ?? 38).toFixed(1)};
+          vec3 q = vWPos * f;
+          float n0 = dNoise(q), nx = dNoise(q + vec3(0.35, 0.0, 0.0)), ny = dNoise(q + vec3(0.0, 0.35, 0.0)), nz = dNoise(q + vec3(0.0, 0.0, 0.35));
+          vec3 g = vec3(nx - n0, ny - n0, nz - n0);
+          vec3 gv = (viewMatrix * vec4(g, 0.0)).xyz;
+          normal = normalize(normal - gv * ${(opts.detailStrength ?? 0.9).toFixed(2)});
+        }`);
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+        diffuseColor.rgb *= mix(0.45, 1.0, smoothstep(0.0, 0.22, vLocal.y));
+        diffuseColor.rgb *= 0.85 + 0.3 * dNoise(vWPos * 9.0);`);
     }
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
       {
@@ -139,6 +162,6 @@ export function patchUnderwater(material, opts = {}) {
       }
       #include <opaque_fragment>`);
   };
-  material.customProgramCacheKey = () => 'uw' + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
+  material.customProgramCacheKey = () => 'uw' + (opts.key ?? '') + (opts.detail ? 'd' + (opts.detailScale ?? '') : '') + (opts.swim ? 's' : '') + (opts.flap ? 'f' : '') + (opts.coral ? 'c' : '') + (opts.sway ? 'w' + opts.sway : '') + (opts.swimLength ?? '') + (opts.waveK ?? '');
   return material;
 }

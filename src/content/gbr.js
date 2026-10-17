@@ -141,7 +141,7 @@ export const species = [
     sources: [
       'Australian Museum – Bluestreak Cleaner Wrasse, Labroides dimidiatus',
       'IUCN Red List – Labroides dimidiatus',
-      'Kohda et al. 2019, PNAS – Mirror test in cleaner wrasse'
+      'Kohda et al. 2019, PLOS Biology – Mirror test in cleaner wrasse (doi:10.1371/journal.pbio.3000021)'
     ]
   },
   {
@@ -718,7 +718,7 @@ export const missions = [
     id: 'read-the-waves',
     title: 'Read the waves',
     brief: 'Before we dive, we need to understand the ocean surface. Swell is energy from distant winds travelling across the sea – watch how it changes as it reaches the shallow reef. Catch a wave and see the physics for yourself.',
-    goal: { type: 'surf-ride', minScore: 1 },
+    goal: { type: 'surf-ride', minScore: 300 },
     hint: 'Waves get steeper as the water gets shallower – position yourself where the swell starts to stand up.',
     questions: [
       {
@@ -818,9 +818,9 @@ export const missions = [
   {
     id: 'reef-under-pressure',
     title: 'Reef under pressure',
-    brief: 'The Great Barrier Reef has faced repeated mass bleaching events as oceans warm. In the lab, you will raise the water temperature and watch what happens inside a coral. Understanding bleaching helps us protect the reef and support its recovery.',
+    brief: 'The Great Barrier Reef has faced repeated mass bleaching events as oceans warm. In the lab, you will raise the water temperature, fast-forward time and watch the reef around you respond — bleaching, coral death, algae and recovery. Understanding bleaching helps us protect the reef and support its recovery.',
     goal: { type: 'lab', condition: 'bleaching' },
-    hint: 'Watch the tiny algae inside the coral tissue as the temperature climbs.',
+    hint: 'Raise summer sea temperature above +1 °C, run the time-lapse, then press "Look at the reef" to swim among the results.',
     questions: [
       {
         q: 'What actually happens when a coral bleaches?',
@@ -842,18 +842,18 @@ export const missions = [
           'How deep the warm water reaches'
         ],
         answer: 1,
-        explain: 'DHW adds up heat above the normal summer maximum over 12 weeks. Around 4 DHW, significant bleaching is likely; above about 8 DHW, severe bleaching and coral death are likely.'
+        explain: 'DHW adds up heat above the bleaching threshold (about 1 °C over the normal summer maximum) across the previous 12 weeks. Around 4 DHW, significant bleaching is likely; above about 8 DHW, severe bleaching and coral death are likely. (The lab simplifies this by assuming about 6 hot weeks.)'
       },
       {
         q: 'How can fertiliser running off farms lead to crown-of-thorns starfish outbreaks?',
         options: [
           'Fertiliser poisons the starfish\'s predators directly',
-          'Extra nutrients boost phytoplankton, so more starfish larvae survive',
+          'Extra nutrients can boost phytoplankton, which may help more starfish larvae survive',
           'Fertiliser makes corals taste better',
           'Starfish eat the fertiliser'
         ],
         answer: 1,
-        explain: 'Crown-of-thorns larvae feed on phytoplankton. Nutrient runoff causes phytoplankton blooms, helping many more larvae survive to become coral-eating adults.'
+        explain: 'Crown-of-thorns larvae feed on phytoplankton, and nutrient-fuelled blooms are thought to help more larvae survive. Scientists are still debating how big this effect is — removal of predators and natural cycles also play a part — so it is one contributing cause, not the whole story.'
       }
     ]
   },

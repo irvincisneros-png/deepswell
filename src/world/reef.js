@@ -72,7 +72,8 @@ export class Reef {
         const list = placements[vi];
         if (!list.length) return;
         const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: gen.rough, metalness: 0, side: gen.upright ? THREE.DoubleSide : THREE.FrontSide });
-        patchUnderwater(mat, { coral: kind !== 'rock', sway: gen.sway ?? 0 });
+        // Only reef-building/soft corals with zooxanthellae bleach (not sea fans, sponges or rock).
+        patchUnderwater(mat, { coral: gen.bleaches ?? !['rock', 'seafan', 'sponge'].includes(kind), sway: gen.sway ?? 0, detail: true, detailScale: gen.detailScale ?? 38 });
         const im = new THREE.InstancedMesh(geo, mat, list.length);
         const bleach = new Float32Array(list.length);
         const tint = new THREE.Color();

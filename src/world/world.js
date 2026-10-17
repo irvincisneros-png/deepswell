@@ -5,6 +5,7 @@ import { Reef } from './reef.js';
 import { Life } from '../life/life.js';
 import { Ocean, WaveMesh, Sky } from '../ocean/water.js';
 import { makeNoise } from '../core/noise.js';
+import { globalUniforms } from '../ocean/shaders.js';
 
 const tick = () => new Promise(r => setTimeout(r, 0));
 
@@ -17,6 +18,7 @@ export class World {
   async load(eco, progress = () => {}) {
     this.dispose();
     this.eco = eco;
+    globalUniforms.uBleach.value = 0; globalUniforms.uDead.value = 0;
     progress(0.1, 'Mixing the sea water…');
     this.env.apply(eco);
     await tick();
@@ -95,6 +97,7 @@ export class World {
   dispose() {
     this.terrain?.dispose(); this.reef?.dispose(); this.life?.dispose();
     for (const o of [this.ocean?.near, this.ocean?.far, this.waveMesh?.mesh]) if (o) { o.geometry.dispose(); o.material.dispose(); o.parent?.remove(o); }
+    this.ocean?.group.parent?.remove(this.ocean.group);
     this.eco?.undecorate?.(this);
     this.terrain = this.reef = this.life = this.ocean = this.waveMesh = null;
   }

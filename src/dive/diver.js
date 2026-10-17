@@ -27,7 +27,7 @@ export class Diver {
   }
   spawn(pos, yaw = 0, breath = 1) {
     this.pos.copy(pos); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = -0.2;
-    this.breath = breath; this.eqDepth = Math.max(0, -pos.y); this.ear = 0; this.blackout = false; this.maxDepth = 0;
+    this.breath = breath; this.eqDepth = Math.max(0, -pos.y); this.ear = 0; this.blackout = false; this.maxDepth = 0; this.earWarned = false; this.lowWarned = false;
     this.surfaced = pos.y > -0.5; this.active = true;
   }
   get depth() { return Math.max(0, -this.pos.y); }
@@ -88,8 +88,8 @@ export class Diver {
     const d2 = Math.max(0, surfaceH - this.pos.y);
     if (d2 < 0.45) {
       if (!this.surfaced) { ev.push('surface'); this.surfaced = true; }
-      this.breath = Math.min(1, this.breath + dt * 0.22);
-      this.eqDepth = 0; this.ear = 0; this.lowWarned = false;
+      this.breath = Math.min(1, this.breath + dt * 0.09); // recovery breathing takes time
+      this.eqDepth = 0; this.ear = 0; this.lowWarned = false; this.earWarned = false;
     } else {
       if (this.surfaced) { ev.push('dive'); this.surfaced = false; }
       if (!this.freeze) this.breath -= dt / BREATH_SECONDS * (0.7 + effort * 0.9);
@@ -99,8 +99,12 @@ export class Diver {
       if (d2 < this.eqDepth) this.eqDepth = d2;
       const need = d2 - this.eqDepth;
       this.ear = need > 1.2 ? (need - 1.2) / 1.6 : 0;
-      if (this.ear > 1 && !this.earWarned) { ev.push('earPain'); this.earWarned = true; }
-      if (inp.hit('KeyQ')) { this.eqDepth = d2; this.ear = 0; this.earWarned = false; ev.push('equalise'); }
+      if (this.ear > 1 && !this.earWarned) { ev.push('earPain'); this.earWarned = true; this.painDepth = d2; }
+      if (inp.hit('KeyQ')) {
+        // Under pain you must rise a little before equalising works — never force it.
+        if (this.earWarned && d2 > (this.painDepth ?? 0) - 0.8) ev.push('eqFail');
+        else { this.eqDepth = d2; this.ear = 0; this.earWarned = false; ev.push('equalise'); }
+      }
       this.maxDepth = Math.max(this.maxDepth, d2);
     }
     this.breath = clamp(this.breath, 0, 1);

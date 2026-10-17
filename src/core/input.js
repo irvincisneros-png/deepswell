@@ -8,26 +8,34 @@ export class Input {
     this.clicks = []; this.locked = false;
     this.wantLock = false;
     this.mouseDown = { 0: false, 2: false };
+    this.gameplay = false; // set by the game while surfing/diving with no panel open
     addEventListener('keydown', e => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      // Leave Tab/Space/Enter alone for buttons and dialogs so the UI stays keyboard-operable.
+      if (!this.gameplay) return;
       const k = e.code;
       if (!this.keys.has(k)) this.pressed.add(k);
       this.keys.add(k);
-      if (['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(k)) e.preventDefault();
+      if (['Space', 'ArrowUp', 'ArrowDown'].includes(k)) e.preventDefault();
     });
     addEventListener('keyup', e => this.keys.delete(e.code));
     addEventListener('blur', () => this.keys.clear());
-    addEventListener('mousemove', e => { if (this.locked) { this.mx += e.movementX; this.my += e.movementY; } });
+    // Look: pointer lock when available; otherwise drag with the left mouse button (fallback for blocked pointer lock).
+    addEventListener('mousemove', e => { if (this.locked || (this.dragLook && this.mouseDown[0])) { this.mx += e.movementX; this.my += e.movementY; } });
     canvas.addEventListener('mousedown', e => {
       this.mouseDown[e.button] = true;
-      if (this.wantLock && !this.locked) { this.lock(); return; }
+      if (this.wantLock && !this.locked && !this.dragLook) { this.lock(); return; }
       this.clicks.push({ button: e.button, x: e.clientX, y: e.clientY });
     });
     addEventListener('mouseup', e => { this.mouseDown[e.button] = false; });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; this.onLockChange?.(this.locked); });
   }
-  lock() { try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch { /* ignore */ } }
+  lock() {
+    const fail = () => { this.dragLook = true; this.onLockFail?.(); };
+    try { const p = this.canvas.requestPointerLock(); if (p && p.catch) p.catch(fail); } catch { fail(); }
+  }
+  clear() { this.keys.clear(); this.pressed.clear(); this.mx = this.my = 0; this.clicks = []; }
   unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
   down(...codes) { return codes.some(c => this.keys.has(c)); }
   hit(...codes) { return codes.some(c => this.pressed.has(c)); }

@@ -68,8 +68,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 .trick { font-weight: 800; font-size: 22px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6); animation: trick 1.6s forwards; }
 .trick span { color: var(--accent2); margin-left: 8px; font-size: 18px; }
 @keyframes trick { 0% { opacity: 0; transform: translateX(30px) scale(0.9); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
-#toast { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; align-items: center; width: min(640px, 92vw); }
-.toast { background: var(--glass2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px; font-size: 15px; line-height: 1.4; text-align: center; backdrop-filter: blur(8px); animation: toast 0.3s; }
+#toast { position: absolute; left: 50%; top: 62px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 6px; align-items: center; width: min(600px, 70vw); }
+.toast { background: var(--glass2); border: 1px solid var(--line); border-radius: 12px; padding: 8px 14px; font-size: 14px; line-height: 1.4; text-align: center; backdrop-filter: blur(8px); animation: toast 0.3s; }
 .toast.warn { border-color: rgba(255, 179, 71, 0.6); }
 .toast.bad { border-color: rgba(255, 90, 90, 0.7); }
 .toast.good { border-color: rgba(47, 214, 196, 0.7); }
@@ -77,6 +77,11 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 #surf-hud .score, #surf-hud .speed { position: absolute; top: 60px; background: var(--glass); padding: 8px 14px; border-radius: 12px; backdrop-filter: blur(6px); }
 #surf-hud .score { left: 16px; } #surf-hud .speed { left: 150px; }
 #surf-hud b { font-size: 26px; display: block; line-height: 1; } #surf-hud span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+#face-meter { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; }
+.fm-track { position: relative; width: 12px; height: 180px; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(47,214,196,0.25) 40%, rgba(47,214,196,0.25) 75%, rgba(255,255,255,0.12)); }
+.fm-danger { position: absolute; left: 0; right: 0; top: 0; height: 0; border-radius: 8px 8px 0 0; background: rgba(255, 90, 90, 0.75); }
+.fm-dot { position: absolute; left: 50%; width: 20px; height: 20px; margin: -10px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+#face-meter small { color: #d8eef2; }
 .meter { position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%); width: min(360px, 80vw); text-align: center; }
 .meter-track { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,0.12); }
 .meter-track .zone { position: absolute; left: 62%; width: 20%; top: 0; bottom: 0; background: rgba(47, 214, 196, 0.45); border-radius: 6px; }

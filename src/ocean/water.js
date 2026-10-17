@@ -49,7 +49,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
     uDeepTint: globalUniforms.uDeepTint, uShallowTint: globalUniforms.uShallowTint, uWaterTint: globalUniforms.uWaterTint,
     uFogColor: globalUniforms.uFogColor, uFogDensity: globalUniforms.uFogDensity, uUnderwater: globalUniforms.uUnderwater,
     uDetail: { value: detail }, uDepth: { value: depthTex }, uDepthBox: { value: depthBox },
-    uCalm: { value: 1 }, uHole: { value: new THREE.Vector4(0, 0, 0, 0) }, uWaveH: { value: 2.4 },
+    uCalm: { value: 1 }, uHole: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleOn: { value: 0 }, uWaveH: { value: 2.4 },
   };
   const vertexShader = /* glsl */`
     ${swellGLSL}
@@ -75,12 +75,12 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
     ${noiseGLSL}
     uniform float uTime; uniform sampler2D uDetail; uniform sampler2D uDepth; uniform vec4 uDepthBox;
     uniform vec3 uDeepTint; uniform vec3 uShallowTint; uniform vec3 uWaterTint; uniform vec3 uFogColor; uniform float uFogDensity;
-    uniform float uUnderwater; uniform vec4 uHole; uniform float uWaveH;
+    uniform float uUnderwater; uniform vec4 uHole; uniform float uHoleOn; uniform float uWaveH;
     varying vec3 vWPos; varying vec3 vN; varying float vFoam; varying float vH;
     void main() {
       ${waveMesh ? '' : `
         // Cut a hole where the set-wave mesh takes over (with a 1 m overlap hidden by identical shading).
-        if (uHole.z > 0.0 && vWPos.x > uHole.x && vWPos.x < uHole.y && vWPos.z > uHole.z && vWPos.z < uHole.w) discard;
+        if (uHoleOn > 0.5 && vWPos.x > uHole.x && vWPos.x < uHole.y && vWPos.z > uHole.z && vWPos.z < uHole.w) discard;
       `}
       vec3 V = normalize(cameraPosition - vWPos);
       vec2 uv = vWPos.xz;
@@ -168,7 +168,8 @@ export class Ocean {
   }
   setHole(box) { // box = [xMin, xMax, zMin, zMax] or null
     const h = this.nearMat.uniforms.uHole.value;
-    if (box) h.set(box[0], box[1], box[2], box[3]); else h.set(0, 0, 0, 0);
+    this.nearMat.uniforms.uHoleOn.value = box ? 1 : 0;
+    if (box) h.set(box[0], box[1], box[2], box[3]);
   }
   setCalm(c) { this.calm = c; this.nearMat.uniforms.uCalm.value = c; this.far.material.uniforms.uCalm.value = c * 0.35; }
   update(camera) {

@@ -6,8 +6,8 @@ import { clamp, damp, smoothstep } from '../core/noise.js';
 const G = 9.81;
 
 export class SurfSession {
-  constructor({ eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick }) {
-    Object.assign(this, { eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick });
+  constructor({ eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick, training = false }) {
+    Object.assign(this, { eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick, training });
     this.cfg = eco.surf;
     this.camPos = new THREE.Vector3(); this.camLook = new THREE.Vector3();
     this.reset();
@@ -79,16 +79,18 @@ export class SurfSession {
       if (s > 0 && s < H * 3) push = this.wave.speed * smoothstep(H * 3, H * 0.4, s) * 0.55;
       info = { s, H };
       const col = this.wave.column(this.pos.x, {});
-      // Paddling into a section that's already broken = caught inside.
-      if (col.collapse > 0.4 && s > -1 && s < H * 2) { this.startWipeout('Caught inside! The whitewater rolled you.'); return; }
-      const catchWindow = s > H * 0.15 && s < H * 1.3;
-      if (catchWindow) this.prompt = this.paddleSpeed > 1.4 ? 'POP UP! (Space)' : 'Paddle harder! (W)';
+      // Paddling into a section that's already broken = caught inside (not on your first, training wave).
+      if (!this.training && col.collapse > 0.4 && s > -1 && s < H * 2) { this.startWipeout('Caught inside! The whitewater rolled you. Next time paddle toward the unbroken shoulder (A/D).'); return; }
+      const minSpeed = this.training ? 1.0 : 1.4;
+      const catchWindow = s > H * (this.training ? 0.05 : 0.15) && s < H * (this.training ? 1.7 : 1.3);
+      if (catchWindow) this.prompt = this.paddleSpeed > minSpeed ? 'POP UP! (Space)' : 'Paddle harder! (hold W)';
       else if (s < 0 && s > -H * 4) this.prompt = '';
-      else if (s > 0 && s < 30) this.prompt = 'Paddle! Match the wave speed (hold W)';
+      else if (s > 0 && s < 18) this.prompt = 'Paddle now! (hold W) — match the wave\'s speed';
+      else if (s > 0 && s < 45) this.prompt = 'Wave coming — get ready to paddle…';
       if (inp.hit('Space')) {
-        if (catchWindow && this.paddleSpeed > 1.4) { this.startRide(s, H); return; }
+        if (catchWindow && this.paddleSpeed > minSpeed) { this.startRide(s, H); return; }
         if (s > H * 1.3 || !this.wave) this.msg = 'Too early — the wave has to lift your board first.';
-        else if (s <= H * 0.15) this.startWipeout('Too late — you nosedived over the falls ("pearling").');
+        else if (s <= H * 0.15 && !this.training) this.startWipeout('Too late — you nosedived over the falls ("pearling"). Pop up while the wave is lifting you.');
         else this.msg = 'Not enough paddle speed to catch it.';
         this.msgTimer = 2.5;
       }
@@ -142,7 +144,8 @@ export class SurfSession {
     const drag = 0.035 * R.v * R.v + 0.25;
     R.pumpCD -= dt;
     R.pumpAnim = damp(R.pumpAnim, 0, 6, dt);
-    if (inp.hit('KeyW', 'ArrowUp') && R.pumpCD <= 0) { R.v += 0.9 * (0.5 + pocket * 0.5); R.pumpCD = 0.45; R.pumpAnim = 1; }
+    if (inp.down('KeyW', 'ArrowUp') && R.pumpCD <= 0) { R.v += 0.8 * (0.5 + pocket * 0.5); R.pumpCD = 0.55; R.pumpAnim = 1; }
+    if (inp.hit('KeyE')) return this.kickOut('You kicked out over the shoulder — nice control.');
     R.v = clamp(R.v + (a_g + a_p - drag) * dt, 0, 13);
     R.maxSpeed = Math.max(R.maxSpeed, R.v);
     const faceLen = Math.max(2.5, face.top / Math.max(0.35, Math.sin(slope))) * 1.8;
@@ -166,19 +169,23 @@ export class SurfSession {
     R.lastTheta = R.theta;
     // Tube riding: deep in the pocket under a pitching lip.
     const inTube = face.curl > 0.55 && face.d > -5 && face.d < 0.8 && R.ft < 0.62;
+    // Warn before the lip lands, and give a short reaction window.
+    const lipDanger = face.curl > 0.45 && face.d > -7 && R.ft > 0.35 && !R.crouch;
+    if (lipDanger) { this.prompt = 'The lip is pitching — CROUCH (S)!'; R.lipTimer = (R.lipTimer ?? 0) + dt; } else R.lipTimer = 0;
+    this.faceInfo = { ft: R.ft, danger: Math.max(0, Math.min(1, (face.d + 8) / 8)) * face.curl };
     if (inTube && R.crouch) { R.tube += dt; this.score += 70 * dt; if (!R.tubeCalled) { R.tubeCalled = true; this.trick('BARREL!', 200); } }
     else if (R.tubeCalled && !inTube) { R.tubeCalled = false; if (R.tube > 1) this.trick(`Tube ride ${R.tube.toFixed(1)} s`, Math.round(R.tube * 100)); R.tube = 0; }
     this.score += dt * (8 + R.v * 2);
     // Ride-ending conditions
     if (face.d > 1.0) return this.startWipeout('The whitewater caught you — stay ahead of the breaking section (ride toward the open face).');
-    if (inTube && !R.crouch && R.ft > 0.4) return this.startWipeout('The lip landed on your head! Crouch (S) when you\'re in the barrel.');
+    if (inTube && !R.crouch && R.ft > 0.4 && R.lipTimer > (this.training ? 1.2 : 0.6)) return this.startWipeout('The lip landed on your head! Crouch (S) when you\'re in the barrel.');
     if (R.ft > 1.0 && R.topTime > 0.7 && steer > 0) {
       if (face.curl > 0.4 && face.d > -8) return this.startWipeout('Over the falls! You went up into the pitching lip.');
       return this.kickOut('Kick-out over the back of the wave.');
     }
     if (R.ft < -0.35 || (R.v < 1.5 && R.time > 1.5)) return this.kickOut(R.time > 4 ? 'The wave outran you — ride finished.' : 'You lost the wave — stay on the steep part of the face for speed.');
     if (face.H < 0.55) return this.kickOut('The wave faded out in the lagoon — great ride!');
-    R.ft = clamp(R.ft, -0.3, 1.1);
+    R.ft = clamp(R.ft, -0.5, 1.1);
     // Place the board on the face.
     const f2 = sampleFace(w, this.pos.x, clamp(R.ft, 0, 1), this._face2 || (this._face2 = {}));
     this.pos.z = f2.z + (R.ft < 0 ? -R.ft * 2.5 : 0);

@@ -39,8 +39,7 @@ export function evaluatePhoto(camera, candidates, { groundAt, maxRange = 14, div
     if (a.b?.type === 'school' || a.b?.type === 'vortex') behaviours.add('schooling');
     if (a.b?.type === 'host') behaviours.add('symbiosis');
   }
-  // A cleaning interaction anywhere clearly in frame counts too.
-  for (const f of inFrame) if (f.c.agent?.cleaning && f.size > 0.03) behaviours.add('cleaning');
+  // Behaviours belong to the subject only: a cleaning shot must show the cleaner or the fish being cleaned.
   return { subject: best.c, quality, reason, behaviours: [...behaviours], inFrame };
 }
 

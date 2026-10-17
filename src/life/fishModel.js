@@ -16,7 +16,7 @@ function bodyProfile(t, look) {
 }
 
 /** Fill a canvas skin. painter(u, s, part, f) returns [r,g,b] 0..1. */
-function paintSkin(look, W = 256, H = 256) {
+function paintSkin(look, W = 512, H = 512) {
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   const ctx = c.getContext('2d');
   const img = ctx.createImageData(W, H);
@@ -30,6 +30,16 @@ function paintSkin(look, W = 256, H = 256) {
         const phi = (v / 0.75) * TAU;
         const s = Math.cos(phi); // +1 dorsal, -1 belly
         col = p.body(u, s, phi < Math.PI ? 1 : -1);
+        if (!look.smooth) {
+          // Scale rows, a gill-cover line and a darker mouth give close-ups some anatomy.
+          const sc = 0.93 + 0.07 * Math.sin(u * 260 + (Math.floor(v * 90) % 2) * 1.6) * Math.sin(v * 380);
+          const gillU = (look.gill ?? 0.8) - 0.03 * s * s;
+          const gill = Math.abs(u - gillU) < 0.005 && Math.abs(s) < 0.75 ? 0.7 : 1;
+          const mouth = u > 0.975 && Math.abs(s + 0.05) < 0.12 ? 0.55 : 1;
+          const lat = Math.abs(s - 0.35 - 0.1 * Math.sin(u * 3)) < 0.012 && u > 0.2 && u < 0.85 ? 0.88 : 1;
+          const k = sc * gill * mouth * lat;
+          col = [col[0] * k, col[1] * k, col[2] * k];
+        }
       } else {
         const fv = (v - 0.75) / 0.25;
         const part = fv < 0.25 ? 'dorsal' : fv < 0.5 ? 'anal' : fv < 0.75 ? 'tail' : 'pectoral';

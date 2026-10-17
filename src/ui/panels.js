@@ -1,5 +1,4 @@
 // Modal panels. Each opener renders into #modal-body; game pauses look controls while open.
-import { simulate, explain, dhw, initialState } from '../learn/reefModel.js';
 import { TIERS } from '../core/settings.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -18,8 +17,11 @@ export class Panels {
   }
   get isOpen() { return !this.modal.classList.contains('hidden'); }
   open(html, onClose) {
+    if (!this.isOpen) this.returnFocus = document.activeElement;
     this.body.innerHTML = html;
     this.modal.classList.remove('hidden');
+    this.game.input.clear();
+    requestAnimationFrame(() => (this.body.querySelector('button, [href], input, select, summary') ?? $('#modal-close')).focus());
     this.game.input.unlock();
     this.onClose = onClose ?? null;
     this.body.scrollTop = 0; this.modal.querySelector('.panel').scrollTop = 0;
@@ -30,11 +32,12 @@ export class Panels {
     this.body.innerHTML = '';
     const cb = this.onClose; this.onClose = null;
     cb?.();
+    if (this.returnFocus?.isConnected) this.returnFocus.focus();
     this.game.onPanelClosed();
   }
 
   // ---------------------------------------------------------------- species card
-  card(sp, entry) {
+  card(sp, entry, onBack) {
     const photo = entry?.photo ? `style="background-image:url(${entry.photo})"` : '';
     const unlocked = !!entry;
     const html = `
@@ -60,8 +63,10 @@ export class Panels {
       ${unlocked ? `<p>${esc(sp.fieldNotes)}</p>` : `<div class="locked">🔒 Photograph this species to unlock detailed field notes.</div>`}
       ${entry?.behaviours?.length ? `<p><b>Behaviours you've recorded:</b> ${entry.behaviours.map(b => esc(BEHAVIOUR_NAMES[b] ?? b)).join(', ')}</p>` : ''}
       <h3>Threats</h3><p>${esc(sp.threats)}</p>
-      <p class="sources">Sources: ${(sp.sources || []).map(esc).join('; ')}</p>`;
+      <p class="sources">Sources: ${(sp.sources || []).map(esc).join('; ')}</p>
+      ${onBack ? '<p><button class="btn small" id="card-back">← Back to journal</button></p>' : ''}`;
     this.open(html);
+    if (onBack) $('#card-back', this.body).onclick = onBack;
   }
 
   // ---------------------------------------------------------------- journal
@@ -92,7 +97,7 @@ export class Panels {
       this.body.querySelectorAll('.jcell').forEach(b => b.onclick = () => {
         const ec = ecos.find(x => x.id === b.dataset.e);
         const sp = ec.speciesInfo.find(s => s.id === b.dataset.id);
-        this.card(sp, progress.journal[`${ec.id}:${sp.id}`]);
+        this.card(sp, progress.journal[`${ec.id}:${sp.id}`], () => render(ecoId, tab));
       });
       $('#j-csv', this.body).onclick = () => this.game.exportCSV();
     };
@@ -111,10 +116,11 @@ export class Panels {
         const done = st.complete;
         return `<div class="mission ${done ? 'done' : ''}">
           <div class="row"><h3 style="margin:0;color:var(--ink);font-size:18px;text-transform:none;letter-spacing:0">${done ? '✅ ' : st.goalMet ? '🟡 ' : ''}${esc(m.title)}</h3>
-            <div>${st.goalMet && !done ? `<button class="btn small primary" data-quiz="${m.id}">Answer check questions</button>` : ''}
+            <div>${st.goalMet ? `<button class="btn small ${done ? '' : 'primary'}" data-quiz="${m.id}">${done ? 'Retry questions' : 'Answer check questions'}</button>` : ''}
             <button class="btn small" data-track="${m.id}">${this.game.activeMission?.id === m.id ? 'Tracking ✓' : 'Track'}</button></div></div>
           <p>${esc(m.brief)}</p>
-          <p style="color:var(--muted);font-size:14px">💡 ${esc(m.hint)}${done ? ` · Score ${st.score}/${m.questions.length}` : ''}</p>
+          <p style="color:var(--muted);font-size:14px">💡 ${esc(m.hint)}</p>
+          <p style="font-size:13px">${st.goalMet ? '✔ Field task done' : '○ Field task not done yet'} · ${st.attempts ? `Questions: best ${st.best}/${m.questions.length} (${st.attempts} attempt${st.attempts > 1 ? 's' : ''})` : 'Questions not attempted'}</p>
         </div>`;
       }).join('')}`;
     this.open(html);
@@ -124,13 +130,21 @@ export class Panels {
 
   quiz(eco, m, progress, onDone) {
     let i = 0, score = 0;
+    const answers = [];
     const step = () => {
       if (i >= m.questions.length) {
         const key = `${eco.id}:${m.id}`;
-        progress.missions[key] = { ...(progress.missions[key] ?? {}), goalMet: true, complete: true, score };
+        const prev = progress.missions[key] ?? {};
+        const best = Math.max(prev.best ?? 0, score);
+        const pass = Math.ceil(m.questions.length * 2 / 3);
+        progress.missions[key] = { ...prev, goalMet: true, attempts: (prev.attempts ?? 0) + 1, score, best, complete: best >= pass, answers: answers.slice() };
         this.game.persist();
-        this.body.innerHTML = `<h2>Mission complete: ${esc(m.title)}</h2><p class="result-big">${score}/${m.questions.length}</p><p>${score === m.questions.length ? 'Perfect — you think like a marine scientist.' : 'Good work. Read the explanations again and you\'ll have it.'}</p><p><button class="btn primary" id="q-done">Back to the water</button></p>`;
+        this.body.innerHTML = `<h2>${best >= pass ? 'Mission complete' : 'Nearly there'}: ${esc(m.title)}</h2><p class="result-big">${score}/${m.questions.length}</p>
+          <p>${score === m.questions.length ? 'Perfect — you think like a marine scientist.' : score >= pass ? 'Good work. Review the explanations below.' : `You need ${pass}/${m.questions.length} to complete the mission. Review the explanations and try again.`}</p>
+          <h3>Review</h3>${m.questions.map((q, k) => `<p><b>${answers[k] === q.answer ? '✅' : '❌'} ${esc(q.q)}</b><br>${esc(q.options[q.answer])} — ${esc(q.explain)}</p>`).join('')}
+          <p><button class="btn primary" id="q-done">Back to the water</button> ${score < m.questions.length ? '<button class="btn" id="q-retry">Try again</button>' : ''}</p>`;
         $('#q-done', this.body).onclick = () => this.close();
+        if ($('#q-retry', this.body)) $('#q-retry', this.body).onclick = () => { i = 0; score = 0; answers.length = 0; step(); };
         onDone?.();
         return;
       }
@@ -140,6 +154,7 @@ export class Panels {
       const btns = this.body.querySelectorAll('.opts button');
       btns.forEach(b => b.onclick = () => {
         const k = +b.dataset.k;
+        answers[i] = k;
         btns.forEach(x => { x.disabled = true; if (+x.dataset.k === q.answer) x.classList.add('right'); });
         if (k === q.answer) score++; else b.classList.add('wrong');
         this.game.audio.blip(k === q.answer ? 990 : 220, 0.15, 0.08);
@@ -152,81 +167,88 @@ export class Panels {
     step();
   }
 
-  // ---------------------------------------------------------------- reef health lab
-  lab(eco, apply, onResult) {
-    const d0 = eco.labDefaults ?? { temp: 0, nutrients: 0.2, cots: 0.15, fishing: 0.2 };
-    const inp = { ...d0, every: false, years: 5 };
-    const labels = eco.labLabels ?? {};
+  // ---------------------------------------------------------------- ecosystem lab (generic; each ecosystem supplies eco.lab)
+  lab(eco, game) {
+    const L = eco.lab;
+    this.labState ??= {};
+    const st = this.labState[eco.id] ??= { inputs: { ...L.defaults, years: 5 }, series: null, idx: 0 };
+    const inp = st.inputs;
+    const sliders = [...L.sliders, { id: 'years', label: 'Years to fast-forward', min: 1, max: 10, step: 1, fmt: v => `${v}` }];
     const html = `
-      <h2>${esc(labels.title ?? 'Reef health lab')}</h2>
-      <p>${esc(labels.intro ?? 'Change the pressures on this reef and fast-forward time. Watch the reef around you respond — then explain what happened.')}</p>
+      <h2>${esc(L.title)}</h2>
+      <p>${esc(L.intro)}</p>
       <div class="lab-grid">
         <div>
-          <div class="slider"><label>Summer sea temperature <b id="v-temp"></b></label><input id="s-temp" type="range" min="0" max="3" step="0.1"><small>°C above the normal summer maximum</small></div>
-          <label style="font-size:14px"><input type="checkbox" id="s-every"> Heatwave every summer (not just year 1)</label>
-          <div class="slider"><label>Nutrient runoff <b id="v-nutrients"></b></label><input id="s-nutrients" type="range" min="0" max="1" step="0.05"><small>Fertiliser and sediment from farms and rivers</small></div>
-          <div class="slider"><label>Crown-of-thorns starfish <b id="v-cots"></b></label><input id="s-cots" type="range" min="0" max="1" step="0.05"><small>Starting starfish density</small></div>
-          <div class="slider"><label>Fishing pressure <b id="v-fishing"></b></label><input id="s-fishing" type="range" min="0" max="1" step="0.05"><small>Removal of herbivores and predators</small></div>
-          <div class="slider"><label>Years to fast-forward <b id="v-years"></b></label><input id="s-years" type="range" min="1" max="10" step="1"></div>
-          <p><button class="btn primary" id="lab-run">▶ Run time-lapse</button> <button class="btn" id="lab-reset">Reset reef</button></p>
+          ${sliders.map(sl => `<div class="slider"><label for="s-${sl.id}">${esc(sl.label)} <b id="v-${sl.id}"></b></label><input id="s-${sl.id}" type="range" min="${sl.min}" max="${sl.max}" step="${sl.step}">${sl.help ? `<small>${esc(sl.help)}</small>` : ''}</div>`).join('')}
+          ${(L.toggles ?? []).map(t => `<label style="font-size:14px;display:block;margin:6px 0"><input type="checkbox" id="t-${t.id}"> ${esc(t.label)}</label>`).join('')}
+          <p><button class="btn primary" id="lab-run">▶ Run time-lapse</button> <button class="btn" id="lab-look">Look at the reef</button> <button class="btn ghost" id="lab-reset">Reset</button></p>
+          <p style="font-size:13px;color:var(--muted)">${esc(L.note ?? 'A simplified teaching model: it shows the direction of change, not a forecast.')}</p>
         </div>
         <div>
-          <canvas class="chart" id="lab-chart" width="640" height="300"></canvas>
-          <div class="readout"><div><b id="r-coral">32%</b>coral cover</div><div><b id="r-algae">12%</b>algae cover</div><div><b id="r-time">Year 0</b>&nbsp;</div></div>
+          <canvas class="chart" id="lab-chart" width="640" height="320" role="img" aria-label="Line chart of the simulation results"></canvas>
+          <div class="readout">${L.readouts.map(r => `<div><b id="r-${r.key}">–</b>${esc(r.label)}</div>`).join('')}<div><b id="r-time">Year 0</b>elapsed</div></div>
           <div class="explain-box" id="lab-explain"></div>
+          <details style="margin-top:8px;font-size:13px"><summary>Data table</summary><div id="lab-table"></div></details>
         </div>
       </div>`;
-    this.open(html, () => { this.labRunning = false; });
-    const ids = ['temp', 'nutrients', 'cots', 'fishing', 'years'];
-    const fmt = { temp: v => `+${(+v).toFixed(1)} °C`, nutrients: v => pct(v), cots: v => pct(v), fishing: v => pct(v), years: v => `${v}` };
-    function pct(v) { return `${Math.round(v * 100)}%`; }
+    this.open(html, () => { this.labGen = (this.labGen ?? 0) + 1; });
     const sync = () => {
-      for (const k of ids) { inp[k] = +$(`#s-${k}`).value; $(`#v-${k}`).textContent = fmt[k](inp[k]); }
-      inp.every = $('#s-every').checked;
-      $('#lab-explain').textContent = explain(inp);
+      for (const sl of sliders) { inp[sl.id] = +$(`#s-${sl.id}`).value; $(`#v-${sl.id}`).textContent = sl.fmt(inp[sl.id]); }
+      for (const t of L.toggles ?? []) inp[t.id] = $(`#t-${t.id}`).checked;
+      $('#lab-explain').textContent = L.explain(inp);
     };
-    for (const k of ids) { $(`#s-${k}`).value = inp[k]; $(`#s-${k}`).oninput = sync; }
-    $('#s-every').onchange = sync;
+    for (const sl of sliders) { $(`#s-${sl.id}`).value = inp[sl.id]; $(`#s-${sl.id}`).oninput = sync; }
+    for (const t of L.toggles ?? []) { $(`#t-${t.id}`).checked = !!inp[t.id]; $(`#t-${t.id}`).onchange = sync; }
     sync();
     const chart = $('#lab-chart');
     const draw = (series, upto) => {
-      const g = chart.getContext('2d'), W = chart.width, H = chart.height;
+      const g = chart.getContext('2d'), W = chart.width, H = chart.height, x0 = 56, y0 = H - 40, x1 = W - 12, yTop = 66;
       g.clearRect(0, 0, W, H);
-      g.strokeStyle = 'rgba(255,255,255,0.12)'; g.lineWidth = 1; g.font = '20px system-ui'; g.fillStyle = 'rgba(200,230,240,0.7)';
-      for (let y = 0; y <= 100; y += 25) { const py = H - 30 - (y / 100) * (H - 50); g.beginPath(); g.moveTo(50, py); g.lineTo(W - 10, py); g.stroke(); g.fillText(`${y}%`, 4, py + 6); }
-      const n = series.length - 1;
-      const line = (key, col, scale = 1) => {
-        g.strokeStyle = col; g.lineWidth = 4; g.beginPath();
-        for (let i = 0; i <= upto; i++) { const px = 50 + (i / n) * (W - 60), py = H - 30 - Math.min(1, series[i][key] * scale) * (H - 50); i ? g.lineTo(px, py) : g.moveTo(px, py); }
-        g.stroke();
-      };
-      line('coral', '#ff8f6b'); line('algae', '#8bd16a'); line('bleach', '#f2f2f2', 0.5); line('cots', '#c58bff', 0.5);
-      g.fillStyle = '#ff8f6b'; g.fillText('coral', 60, 24); g.fillStyle = '#8bd16a'; g.fillText('algae', 130, 24); g.fillStyle = '#f2f2f2'; g.fillText('bleaching', 200, 24); g.fillStyle = '#c58bff'; g.fillText('starfish', 310, 24);
+      g.font = '18px system-ui'; g.lineWidth = 1;
+      for (let y = 0; y <= 100; y += 25) { const py = y0 - (y / 100) * (y0 - yTop); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(x0, py); g.lineTo(x1, py); g.stroke(); g.fillStyle = 'rgba(200,230,240,0.75)'; g.fillText(`${y}%`, 4, py + 6); }
+      const n = Math.max(1, series.length - 1), years = n / 12;
+      g.fillStyle = 'rgba(200,230,240,0.75)';
+      for (let yr = 0; yr <= years; yr++) { const px = x0 + (yr * 12 / n) * (x1 - x0); g.fillText(`${yr}`, px - 5, H - 14); }
+      g.fillText('years', x1 - 50, H - 14);
+      L.lines.forEach((ln, li) => {
+        g.strokeStyle = ln.color; g.lineWidth = 4; g.setLineDash(ln.dashed ? [10, 8] : []);
+        g.beginPath();
+        for (let i = 0; i <= upto; i++) { const px = x0 + (i / n) * (x1 - x0), py = y0 - Math.min(1, series[i][ln.key]) * (y0 - yTop); i ? g.lineTo(px, py) : g.moveTo(px, py); }
+        g.stroke(); g.setLineDash([]);
+        g.fillStyle = ln.color; g.fillText((ln.dashed ? '- - ' : '— ') + ln.label, 10 + (li % 2) * 300, 18 + Math.floor(li / 2) * 20);
+      });
     };
-    let series = simulate(inp, 0);
-    draw(series, 0);
+    const show = (series, i) => {
+      const s = series[i];
+      for (const r of L.readouts) $(`#r-${r.key}`).textContent = r.fmt(s[r.key]);
+      $('#r-time').textContent = `Year ${(i / 12).toFixed(1)}`;
+      draw(series, i);
+      $('#lab-table').innerHTML = `<table style="width:100%;border-collapse:collapse">${'<tr><th>Year</th>' + L.lines.map(l => `<th>${esc(l.label)}</th>`).join('') + '</tr>'}${series.filter((_, k) => k % 12 === 0 && k <= i).map((r, k) => `<tr><td>${k}</td>${L.lines.map(l => `<td>${Math.round(r[l.key] * 100)}</td>`).join('')}</tr>`).join('')}</table>`;
+    };
+    if (st.series) show(st.series, st.idx); else { st.series = L.simulate(inp, 0); st.idx = 0; show(st.series, 0); }
     $('#lab-run').onclick = () => {
       sync();
-      series = simulate(inp, inp.years);
+      const gen = this.labGen = (this.labGen ?? 0) + 1; // a new run cancels any previous one
+      const series = st.series = L.simulate(inp, inp.years);
+      const runInputs = { ...inp };
       const t0 = performance.now(), dur = 1200 + inp.years * 900;
-      this.labRunning = true;
-      let maxBleach = 0;
       const tick = () => {
-        if (!this.labRunning) return;
+        if (gen !== this.labGen) return;
         const f = Math.min(1, (performance.now() - t0) / dur);
-        const i = Math.round(f * (series.length - 1));
-        const s = series[i];
-        maxBleach = Math.max(maxBleach, s.bleach);
-        draw(series, i);
-        $('#r-coral').textContent = `${Math.round(s.coral * 100)}%`;
-        $('#r-algae').textContent = `${Math.round(s.algae * 100)}%`;
-        $('#r-time').textContent = `Year ${(i / 12).toFixed(1)}`;
-        apply(s);
-        if (f < 1) requestAnimationFrame(tick); else { this.labRunning = false; onResult?.({ inputs: { ...inp }, final: s, maxBleach, dhw: dhw(inp.temp) }); }
+        const i = st.idx = Math.round(f * (series.length - 1));
+        show(series, i);
+        L.apply(game, series[i]);
+        if (f < 1) requestAnimationFrame(tick);
+        else {
+          const max = {}; for (const k of Object.keys(series[0])) max[k] = Math.max(...series.map(r => r[k]));
+          const result = { inputs: runInputs, final: series[i], max, years: runInputs.years };
+          game.onLabResult(result);
+        }
       };
       tick();
     };
-    $('#lab-reset').onclick = () => { this.labRunning = false; const s = initialState(); apply(s); series = simulate(inp, 0); draw(series, 0); $('#r-coral').textContent = '32%'; $('#r-algae').textContent = '12%'; $('#r-time').textContent = 'Year 0'; };
+    $('#lab-look').onclick = () => this.close();
+    $('#lab-reset').onclick = () => { this.labGen = (this.labGen ?? 0) + 1; st.series = L.simulate(inp, 0); st.idx = 0; L.apply(game, st.series[0]); show(st.series, 0); };
   }
 
   // ---------------------------------------------------------------- settings / help / results

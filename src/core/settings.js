@@ -11,7 +11,7 @@ export const TIERS = {
 export const DEFAULTS = {
   quality: null, // auto-detected on first run
   sensitivity: 1, invertY: false, volume: 0.8, reducedMotion: false,
-  freezeBreathInCards: false, // teacher option
+  freezeBreathInCards: true, // pause breath while reading (teacher can switch on 'challenge mode')
   subtitles: true,
 };
 

@@ -2,6 +2,8 @@
 // Fore-reef slope with spur-and-groove (z < -15) -> shallow reef crest where the wave breaks -> sandy back-reef lagoon with bommies.
 import { makeNoise, smoothstep, lerp, clamp } from '../core/noise.js';
 import { species as speciesInfo, missions } from '../content/gbr.js';
+import { simulate, explain } from '../learn/reefModel.js';
+import { globalUniforms } from '../ocean/shaders.js';
 
 const noise = makeNoise(42);
 const BOMMIES = [
@@ -96,5 +98,36 @@ export const gbr = {
     chromis: 140, trevally: 55, butterflyfish: 8, angelfish: 5, boxfish: 4, reefshark: 3, manta: 1, bluespottedray: 4,
     turtle: 2, giantclam: 3, cots: 4, seacucumber: 6, anemone: ANEMONES.length,
   },
-  labDefaults: { temp: 0, nutrients: 0.2, cots: 0.15, fishing: 0.2 },
+  lab: {
+    title: 'Reef health lab',
+    intro: 'Change the pressures on this reef and fast-forward time. The reef around you changes too — press "Look at the reef" to swim among the results, then explain what happened.',
+    note: 'Simplified teaching model: it shows the direction of change, not a forecast. Heat stress assumes about 6 weeks above the bleaching threshold each hot summer.',
+    defaults: { temp: 0, every: false, nutrients: 0.2, cots: 0.15, fishing: 0.2 },
+    sliders: [
+      { id: 'temp', label: 'Summer sea temperature', min: 0, max: 3, step: 0.1, fmt: v => `+${(+v).toFixed(1)} °C`, help: '°C above the normal summer maximum' },
+      { id: 'nutrients', label: 'Nutrient runoff', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%`, help: 'Fertiliser and sediment from farms and rivers' },
+      { id: 'cots', label: 'Crown-of-thorns starfish', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%`, help: 'Starting starfish density (relative)' },
+      { id: 'fishing', label: 'Fishing pressure', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%`, help: 'Removal of herbivores and predators' },
+    ],
+    toggles: [{ id: 'every', label: 'Heatwave every summer (not just year 1)' }],
+    lines: [
+      { key: 'coral', label: 'Coral cover', color: '#ff8f6b' },
+      { key: 'algae', label: 'Algae cover', color: '#8bd16a' },
+      { key: 'bleach', label: 'Colonies bleached', color: '#f2f2f2' },
+      { key: 'cots', label: 'Starfish (relative index)', color: '#c58bff', dashed: true },
+    ],
+    readouts: [{ key: 'coral', label: 'coral cover', fmt: v => `${Math.round(v * 100)}%` }, { key: 'algae', label: 'algae cover', fmt: v => `${Math.round(v * 100)}%` }],
+    simulate: (inp, years) => simulate(inp, years),
+    explain,
+    check: r => (r.max.bleach > 0.5 ? ['bleaching'] : []),
+    apply(game, s) {
+      globalUniforms.uBleach.value = Math.min(1, s.bleach * 1.05);
+      globalUniforms.uDead.value = Math.min(1, Math.max(0, (0.32 - s.coral) / 0.32) * 1.1);
+      // Functional groups come from the species cards so the lab never contradicts the field guide.
+      const feeding = Object.fromEntries(speciesInfo.map(sp => [sp.id, sp.feeding]));
+      game.world.life.setAbundance(id => feeding[id] === 'herbivore' ? s.herb : feeding[id] === 'carnivore' ? s.pred
+        : (feeding[id] === 'planktivore' || feeding[id] === 'corallivore') ? Math.min(1, 0.2 + s.coral / 0.32 * 0.8) : 1);
+      game.world.life.setCount('cots', Math.min(1, s.cots * 2.5));
+    },
+  },
 };

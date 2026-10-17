@@ -81,7 +81,7 @@ class Game {
     this.enterMenu();
     const mid = params.get('mission');
     if (mid) { const m = this.eco.missions.find(x => x.id === mid); if (m) this.trackMission(m); }
-    if (params.get('mode') === 'dive') { this.preferDive = true; $('#btn-dive').classList.add('primary'); $('#btn-surf').classList.remove('primary'); }
+    if (params.get('mode') === 'dive') { $('#btn-dive').classList.add('primary'); $('#btn-surf').classList.remove('primary'); $('#btn-dive').focus(); }
     this.clock = new THREE.Clock();
     this.renderer.setAnimationLoop(() => this.loop());
   }
@@ -119,6 +119,8 @@ class Game {
   }
   enterMenu() {
     this.mode = 'menu';
+    this.exitCameraMode();
+    clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     this.input.wantLock = false; this.input.unlock();
     $('#menu').classList.add('show'); $('#hud').classList.add('hidden');
     $('#click-to-play').classList.add('hidden');
@@ -133,6 +135,9 @@ class Game {
   // ------------------------------------------------------------------ modes
   startSurf() {
     if (!this.eco.surf) return this.startDive(null);
+    this.exitCameraMode();
+    clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
+    this.surfCount = (this.surfCount ?? 0) + 1;
     this.mode = 'surf';
     $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');
     $('#surf-hud').classList.remove('hidden'); $('#dive-hud').classList.add('hidden');
@@ -143,8 +148,9 @@ class Game {
     this.surfSession = new SurfSession({
       eco: this.eco, surfer: this.surfer, camera: this.camera, input: this.input, fx: this.fx, audio: this.audio, settings: this.settings,
       onEnd: r => this.onRideEnd(r), onTrick: (n, p) => this.showTrick(n, p),
+      training: this.surfCount <= 1,
     });
-    this.setKeys([['W', 'paddle / pump'], ['A D', 'steer'], ['Space', 'pop up'], ['S', 'crouch'], ['P', 'pause']]);
+    this.setKeys([['W', 'paddle / pump'], ['A', 'drop down face'], ['D', 'climb to lip'], ['Space', 'pop up'], ['S', 'crouch'], ['E', 'kick out'], ['P', 'pause']]);
     this.toast(this.eco.surf.intro ?? 'Paddle out complete. Waves come in sets — watch behind you, then paddle (W) to catch one.');
   }
   onRideEnd(r) {
@@ -170,7 +176,8 @@ class Game {
     this.diver.spawn(spawn, Math.PI, breath);
     this.surfer.root.visible = !!this.eco.surf; this.surfer.rider.visible = false; this.surfer.reset();
     this.input.wantLock = true;
-    this.cameraMode = false; $('#viewfinder').classList.add('hidden');
+    this.exitCameraMode();
+    clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     this.setKeys([['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ...(this.eco.surf ? [['E', 'board']] : []), ['P', 'pause']]);
     if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); this.audio.bubbles(14, 300); }
     else this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
@@ -214,26 +221,17 @@ class Game {
     });
   }
   openMissions() { this.panels.missions(this.eco, this.progress, m => this.trackMission(m)); }
-  openLab() {
-    this.panels.lab(this.eco, s => this.applyLab(s), res => {
-      const conds = this.eco.labCheck ? this.eco.labCheck(res) : (res.maxBleach > 0.5 ? ['bleaching'] : []);
-      for (const c of conds) this.checkMission('lab', c);
-    });
-  }
-  applyLab(s) {
-    if (this.eco.applyLab) return this.eco.applyLab(this, s);
-    globalUniforms.uBleach.value = Math.min(1, s.bleach * 1.05);
-    const lost = Math.max(0, (0.32 - s.coral) / 0.32);
-    globalUniforms.uDead.value = Math.min(1, lost * 1.1);
-    const life = this.world.life;
-    const herb = ['parrotfish', 'bluetang', 'moorishidol', 'butterflyfish'], pred = ['coraltrout', 'reefshark', 'humpheadwrasse', 'trevally'];
-    life.setAbundance(id => herb.includes(id) ? s.herb : pred.includes(id) ? s.pred : id === 'chromis' ? Math.min(1, 0.2 + s.coral / 0.32 * 0.8) : 1);
-    life.setCount('cots', Math.min(1, s.cots * 2.5));
+  openLab() { if (this.eco.lab) this.panels.lab(this.eco, this); }
+  onLabResult(res) {
+    this.progress.lab[this.eco.id] = [...(this.progress.lab[this.eco.id] ?? []).slice(-9), { time: Date.now(), inputs: res.inputs, final: res.final }];
+    this.persist();
+    for (const c of this.eco.lab.check(res)) this.checkMission('lab', c);
   }
   tryBoard() {
     const d = Math.hypot(this.diver.pos.x - this.boardPos.x, this.diver.pos.z - this.boardPos.z);
-    if (d < 4 && this.diver.depthNow < 0.6) { this.startSurf(); this.toast('Back on the board. Paddling out to the lineup…'); }
-    else this.toast(d < 4 ? 'Surface first, then climb on your board.' : `Your board is ${Math.round(d)} m away${this.boardDirection()}.`);
+    if (this.diver.depthNow > 0.6) { this.toast(`Surface first. Your board is ${Math.round(d)} m away${this.boardDirection()}.`); return; }
+    this.startSurf();
+    this.toast(d < 4 ? 'Back on the board. Paddling out to the lineup…' : 'Your buddy towed your board over. Paddling back out to the lineup…');
   }
   boardDirection() {
     const dx = this.boardPos.x - this.diver.pos.x, dz = this.boardPos.z - this.diver.pos.z;
@@ -286,11 +284,16 @@ class Game {
     el.classList.remove('hidden');
     const st = this.progress.missions[`${this.eco.id}:${m.id}`] ?? {};
     const p = this.missionProgress(m);
-    const label = st.complete ? 'Complete ✓' : st.goalMet ? 'Press M — check questions' : ['photo-species', 'depth'].includes(m.goal.type) ? `${p.n} / ${p.of}` : m.hint;
+    const label = st.complete ? 'Complete ✓' : st.goalMet ? (st.attempts ? 'Press M — try the questions again' : 'Press M — check questions') : ['photo-species', 'depth'].includes(m.goal.type) ? `${p.n} / ${p.of}` : m.hint;
     el.innerHTML = `<b>Mission · ${esc(m.title)}</b>${esc(label)}${['photo-species', 'depth'].includes(m.goal.type) && !st.goalMet ? `<div class="bar"><i style="width:${(p.n / p.of) * 100}%"></i></div>` : ''}`;
   }
 
   // ------------------------------------------------------------------ camera tool
+  exitCameraMode() {
+    this.cameraMode = false;
+    $('#viewfinder').classList.add('hidden'); $('#crosshair').classList.remove('hidden');
+    this.camera.fov = 70; this.camera.updateProjectionMatrix();
+  }
   toggleCamera() {
     this.cameraMode = !this.cameraMode;
     $('#viewfinder').classList.toggle('hidden', !this.cameraMode);
@@ -298,8 +301,12 @@ class Game {
     this.camera.fov = this.cameraMode ? 50 : 70; this.camera.updateProjectionMatrix();
     this.audio.blip(this.cameraMode ? 700 : 500, 0.06, 0.05);
   }
+  photoCandidates() {
+    const known = new Set(this.eco.speciesInfo.map(s => s.id));
+    return this.world.photoCandidates(this.camera.position).filter(c => known.has(c.id));
+  }
   takePhoto() {
-    const res = evaluatePhoto(this.camera, this.world.photoCandidates(this.camera.position), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: this.diver.speed });
+    const res = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: this.diver.speed });
     this.audio.shutter();
     $('#fx-flash').style.transition = 'none'; $('#fx-flash').style.opacity = 0.35;
     requestAnimationFrame(() => { $('#fx-flash').style.transition = 'opacity 0.5s'; $('#fx-flash').style.opacity = 0; });
@@ -341,7 +348,7 @@ class Game {
     const el = document.createElement('div');
     el.className = `toast ${kind}`; el.textContent = text;
     box.appendChild(el);
-    while (box.children.length > 3) box.firstChild.remove();
+    while (box.children.length > 2) box.firstChild.remove();
     setTimeout(() => el.remove(), 4200 + text.length * 35);
   }
   showTrick(name, pts) {
@@ -358,12 +365,26 @@ class Game {
     const n = Math.round(seconds * 60);
     for (let i = 0; i < n; i++) { hook?.(this); this.loop(1 / 60, i < n - 1); }
   }
+  /** Adaptive resolution: drop the render scale on slow machines (school laptops). */
+  adapt(raw) {
+    this.ft = (this.ft ?? 0.016) * 0.95 + raw * 0.05;
+    this.fps = Math.round(1 / this.ft);
+    this.slowT = this.ft > 0.034 ? (this.slowT ?? 0) + raw : 0;
+    if (this.slowT > 3 && this.renderer.getPixelRatio() > 0.55) {
+      this.renderer.setPixelRatio(Math.max(0.5, this.renderer.getPixelRatio() - 0.15));
+      this.resize(); this.slowT = 0;
+      if (!this.adaptWarned) { this.adaptWarned = true; this.toast('Lowering resolution to keep things smooth. You can change graphics in Settings.'); }
+    }
+  }
   loop(fixedDt, skipRender = false) {
-    const dt = fixedDt ?? Math.min(0.05, this.clock.getDelta());
+    const raw = fixedDt ?? this.clock.getDelta();
+    if (!fixedDt && raw < 0.25 && document.visibilityState === 'visible') this.adapt(raw);
+    const dt = fixedDt ?? Math.min(0.05, raw);
     this.time += dt; this.frame++;
     globalUniforms.uTime.value = this.time;
     this.world.time = this.time;
     const paused = this.panels.isOpen;
+    this.input.gameplay = !paused && (this.mode === 'surf' || this.mode === 'dive');
     if (this.mode === 'menu') this.updateMenu(dt);
     else if (this.mode === 'surf' && !paused) this.updateSurf(dt);
     else if (this.mode === 'dive') this.updateDive(dt, paused);
@@ -392,7 +413,8 @@ class Game {
     if (this.eco.surf) {
       if (!this.menuWave || this.menuWave.z > this.eco.surf.endZ + 5) {
         const c = this.eco.surf;
-        this.menuWave = new SetWave({ H: c.H, speed: c.speed, peel: c.peel, peakX: c.peakX, z0: c.z0 + 10, breakZ: c.breakZ, endZ: c.endZ });
+        this.menuWave = new SetWave({ H: c.H * 1.1, speed: c.speed, peel: c.peel, peakX: c.peakX, z0: c.z0 + 10, breakZ: c.breakZ, endZ: c.endZ });
+        this.menuWave.t = this.menuWave.tBreak - 1.5;
       }
       this.menuWave.update(dt);
       this.world.waveMesh.update(this.menuWave, this.time);
@@ -423,6 +445,13 @@ class Game {
     if (s.msgTimer > 0) s.msgTimer -= dt;
     pr.textContent = text || '';
     pr.classList.toggle('hot', /POP UP|WIPEOUT/.test(text || ''));
+    // Face position (where you are between the base and the lip) + lip danger while riding
+    const fm = $('#face-meter');
+    if (s.state === 'ride' && s.faceInfo) {
+      fm.classList.remove('hidden');
+      $('#fm-dot').style.top = `${(1 - Math.max(0, Math.min(1, s.faceInfo.ft))) * 100}%`;
+      $('#fm-danger').style.height = `${s.faceInfo.danger * 45}%`;
+    } else fm.classList.add('hidden');
     // Catch meter while paddling for a wave
     const meter = $('#surf-meter');
     if (s.state === 'paddle' && s.waveInfo && s.waveInfo.s > -s.waveInfo.H && s.waveInfo.s < 30) {
@@ -436,8 +465,9 @@ class Game {
   updateDive(dt, paused) {
     const d = this.diver;
     const cardOpen = paused && this.panels.body.querySelector('.card-top');
-    d.freeze = paused && !(cardOpen && !this.settings.freezeBreathInCards);
-    if (!paused) {
+    d.freeze = paused || this.blackedOut;
+    if (cardOpen && !this.settings.freezeBreathInCards && d.depthNow > 0.45) d.freeze = false;
+    if (!paused && !this.blackedOut) {
       d.update(dt, this.world);
       for (const c of this.input.takeClicks()) {
         if (!this.input.locked) continue;
@@ -448,9 +478,11 @@ class Game {
           if (hit) { const sp = this.eco.speciesInfo.find(s => s.id === hit.id); if (sp) this.panels.card(sp, this.progress.journal[`${this.eco.id}:${sp.id}`]); }
         }
       }
-    } else if (cardOpen && !this.settings.freezeBreathInCards) {
-      // Breath keeps ticking while reading (teacher can turn this off).
-      d.breath = Math.max(0, d.breath - dt / 75 * 0.7 * (d.depthNow > 0.45 ? 1 : 0));
+    } else if (!d.freeze) {
+      // Challenge mode (teacher option): breath keeps ticking while a card is open; events still fire.
+      d.breath = Math.max(0, d.breath - dt / 75 * 0.7);
+      if (d.breath < 0.25 && !d.lowWarned) { d.lowWarned = true; d.events.push('lowO2'); }
+      if (d.breath <= 0 && !d.blackout) { d.blackout = true; d.events.push('blackout'); this.panels.close(); }
     }
     for (const e of d.takeEvents()) this.onDiverEvent(e);
     // Board bobbing at the surface
@@ -468,7 +500,7 @@ class Game {
       if (hit) { const sp = this.eco.speciesInfo.find(s => s.id === hit.id); lbl.innerHTML = sp ? `${esc(sp.common)} <i>· click for info</i>` : ''; lbl.classList.toggle('show', !!sp); }
       else lbl.classList.remove('show');
       if (this.cameraMode) {
-        const r = evaluatePhoto(this.camera, this.world.photoCandidates(this.camera.position), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: d.speed });
+        const r = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: d.speed });
         const sp = r.subject && this.eco.speciesInfo.find(s => s.id === r.subject.id);
         $('#vf-subject').textContent = sp ? `${sp.common} ${'★'.repeat(r.quality)}${'☆'.repeat(3 - r.quality)}` : 'no subject';
       }
@@ -500,18 +532,22 @@ class Game {
     if (e === 'surface') { this.audio.breath(true); this.fx.bubbleBurst(d.pos, 6, 0.2); if (d.maxDepth > 3) this.toast(`Surfaced from ${d.maxDepth.toFixed(1)} m. Breathe and recover before the next dive.`); }
     if (e === 'dive') { this.audio.bubbles(4, 600); }
     if (e === 'equalise') { this.audio.blip(330, 0.12, 0.05); }
-    if (e === 'earPain') this.toast('Ouch — pressure on your eardrums! Press Q to equalise. (Pressure at 10 m is double the surface.)', 'warn');
-    if (e === 'lowO2') this.toast('Low on oxygen — start ascending now! Turn around before you feel desperate to breathe.', 'warn');
+    if (e === 'earPain') this.toast('Ear pain! Stop descending, rise a little (Space) and equalise gently (Q). If it won\'t clear, end the dive — never force it.', 'warn');
+    if (e === 'eqFail') this.toast('Can\'t equalise under pain — rise about a metre first, then press Q.', 'warn');
+    if (e === 'lowO2') this.toast('O₂ reserve low — ascend now. (This gauge is a game reserve: real divers get no reliable warning before blackout.)', 'warn');
     if (e === 'blackout') this.blackout();
   }
   blackout() {
     const b = $('#fx-black');
     b.style.opacity = 1;
+    this.blackedOut = true; this.input.clear();
+    clearTimeout(this.blackoutTimer);
     this.toast('You blacked out. Freedivers can lose consciousness without warning when oxygen runs low ("shallow-water blackout").', 'bad');
-    setTimeout(() => {
+    this.blackoutTimer = setTimeout(() => {
+      if (this.mode !== 'dive') return;
       const d = this.diver;
       d.spawn(new THREE.Vector3(d.pos.x, -0.1, d.pos.z), d.yaw, 0.5);
-      b.style.opacity = 0;
+      b.style.opacity = 0; this.blackedOut = false;
       this.toast('Your dive buddy brought you to the surface and kept your airway clear. This is why you NEVER freedive alone.', 'good');
     }, 2200);
   }

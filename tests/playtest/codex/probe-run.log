@@ -1,0 +1,186 @@
+{
+  "idle": {
+    "state": "wait",
+    "messages": [
+      "Missed it! Wait for the next wave in the set."
+    ]
+  },
+  "early-popup": {
+    "state": "wait",
+    "messages": [
+      "Wait for a wave — watch for the set approaching from behind.",
+      "Missed it! Wait for the next wave in the set."
+    ]
+  },
+  "slow-popup": {
+    "end": {
+      "kind": "wipeout",
+      "reason": "Too late — you nosedived over the falls (\"pearling\").",
+      "score": 0,
+      "time": 0,
+      "maxSpeed": 0,
+      "pos": [
+        14,
+        0.13668711684843413,
+        -16.079683170153345
+      ],
+      "rode": false
+    },
+    "state": "ended",
+    "messages": [
+      "Not enough paddle speed to catch it."
+    ]
+  },
+  "prompt-popup": {
+    "end": {
+      "kind": "wipeout",
+      "reason": "Caught inside! The whitewater rolled you.",
+      "score": 0,
+      "time": 0,
+      "maxSpeed": 0,
+      "pos": [
+        14,
+        -2.137565881272263,
+        19.544670254971066
+      ],
+      "rode": false
+    },
+    "state": "ended",
+    "messages": []
+  },
+  "prompt-popup-crouch": {
+    "end": {
+      "kind": "wipeout",
+      "reason": "Caught inside! The whitewater rolled you.",
+      "score": 0,
+      "time": 0,
+      "maxSpeed": 0,
+      "pos": [
+        14,
+        -2.137565881272263,
+        19.544670254971066
+      ],
+      "rode": false
+    },
+    "state": "ended",
+    "messages": []
+  },
+  "prompt-popup-steer": {
+    "end": {
+      "kind": "wipeout",
+      "reason": "Caught inside! The whitewater rolled you.",
+      "score": 0,
+      "time": 0,
+      "maxSpeed": 0,
+      "pos": [
+        14,
+        -2.137565881272263,
+        19.544670254971066
+      ],
+      "rode": false
+    },
+    "state": "ended",
+    "messages": []
+  },
+  "reactive-popup": {
+    "end": {
+      "kind": "done",
+      "reason": "The wave faded out in the lagoon — great ride!",
+      "score": 753,
+      "time": 11.066666666666796,
+      "maxSpeed": 10.299643124740172,
+      "pos": [
+        -74.47935433574169,
+        0.280755376561706,
+        49.45138078057164
+      ],
+      "rode": true
+    },
+    "state": "ended",
+    "finalFaceFraction": 0.8960445586663738,
+    "messages": []
+  },
+  "reactive-popup-crouch": {
+    "end": {
+      "kind": "done",
+      "reason": "The wave faded out in the lagoon — great ride!",
+      "score": 753,
+      "time": 11.066666666666796,
+      "maxSpeed": 10.299643124740172,
+      "pos": [
+        -74.47935433574169,
+        0.280755376561706,
+        49.45138078057164
+      ],
+      "rode": true
+    },
+    "state": "ended",
+    "finalFaceFraction": 0.8960445586663738,
+    "messages": []
+  },
+  "descent-false": {
+    "maxDepth": 3.046880080014445,
+    "depth": 2.7996683621355607,
+    "ear": 0.9997927263347254,
+    "events": [
+      "dive",
+      "earPain"
+    ]
+  },
+  "descent-true": {
+    "maxDepth": 29.55,
+    "depth": 29.55,
+    "ear": 0,
+    "events": [
+      "dive",
+      "equalise"
+    ]
+  },
+  "blackout": {
+    "seconds": 107.13333333333334,
+    "depth": 29.55,
+    "breath": 0
+  },
+  "spawnFlags": {
+    "lowWarned": true,
+    "earWarned": true
+  },
+  "cleaningMisattribution": {
+    "subject": "parrotfish",
+    "behaviours": [
+      "cleaning"
+    ],
+    "quality": 3
+  },
+  "lab": {
+    "dhw09": 0,
+    "dhw1": 6,
+    "fullBleachPlotPercent": 50,
+    "baseline": {
+      "coral": 0.42655807115430294,
+      "algae": 0.1791700383310978,
+      "herb": 0.8249452670696528,
+      "pred": 0.8209726550629002,
+      "cots": 0.007000871091602772,
+      "bleach": 0,
+      "month": 60
+    }
+  },
+  "cardZeroOxygen": {
+    "breath": 0,
+    "events": []
+  },
+  "allWrongQuiz": {
+    "goalMet": true,
+    "complete": true,
+    "score": 0
+  },
+  "fiveFishBookkeeping": [
+    "gbr:clownfish",
+    "gbr:bluetang",
+    "gbr:moorishidol",
+    "gbr:cleanerwrasse",
+    "gbr:parrotfish"
+  ],
+  "boardReturnNearSurface": true
+}

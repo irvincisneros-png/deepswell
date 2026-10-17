@@ -187,7 +187,7 @@ export const LOOKS = {
   },
   turtle: { length: 1.0 },
   manta: {
-    kind: 'manta', length: 1.5, span: 3.8, thick: 0.18, tail: 0.5,
+    kind: 'manta', length: 1.6, span: 3.8, thick: 0.28, tail: 0.5,
     paint: (u, v, top) => {
       if (!top) {
         // White belly with unique dark spots (used to identify individual mantas).

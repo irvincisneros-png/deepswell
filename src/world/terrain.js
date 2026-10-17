@@ -63,7 +63,15 @@ export class Terrain {
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true, map: tex, bumpMap: bumpFromTexture(tex), bumpScale: 1.5, roughness: 0.95, metalness: 0,
     });
-    patchUnderwater(mat);
+    // Break up texture tiling by modulating with a second, larger-scale sample.
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `
+        vec4 t1 = texture2D(map, vMapUv);
+        vec4 t2 = texture2D(map, vMapUv * 0.23 + vec2(0.31, 0.17));
+        vec4 t3 = texture2D(map, vMapUv * 0.061 + vec2(0.7, 0.4));
+        diffuseColor.rgb *= t1.rgb * (0.55 + 0.6 * t2.rgb) * (0.75 + 0.4 * t3.rgb);`);
+    };
+    patchUnderwater(mat, { key: 'terrain' });
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.receiveShadow = false;
     scene.add(this.mesh);
