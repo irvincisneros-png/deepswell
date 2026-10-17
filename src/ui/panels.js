@@ -209,7 +209,7 @@ export class Panels {
       const g = chart.getContext('2d'), W = chart.width, H = chart.height, x0 = 56, y0 = H - 40, x1 = W - 12, yTop = 66;
       g.clearRect(0, 0, W, H);
       g.font = '18px system-ui'; g.lineWidth = 1;
-      for (let y = 0; y <= 100; y += 25) { const py = y0 - (y / 100) * (y0 - yTop); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(x0, py); g.lineTo(x1, py); g.stroke(); g.fillStyle = 'rgba(200,230,240,0.75)'; g.fillText(`${y}%`, 4, py + 6); }
+      for (let y = 0; y <= 100; y += 25) { const py = y0 - (y / 100) * (y0 - yTop); g.strokeStyle = 'rgba(255,255,255,0.12)'; g.beginPath(); g.moveTo(x0, py); g.lineTo(x1, py); g.stroke(); g.fillStyle = 'rgba(200,230,240,0.75)'; g.fillText(L.axis === 'index' ? (y / 100).toFixed(2) : `${y}%`, 4, py + 6); }
       const n = Math.max(1, series.length - 1), years = n / 12;
       g.fillStyle = 'rgba(200,230,240,0.75)';
       for (let yr = 0; yr <= years; yr++) { const px = x0 + (yr * 12 / n) * (x1 - x0); g.fillText(`${yr}`, px - 5, H - 14); }

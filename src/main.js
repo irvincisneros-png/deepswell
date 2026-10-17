@@ -180,6 +180,7 @@ class Game {
     const s = this.eco.diveSpawn ?? { x: 0, z: -22 };
     if (!spawn) { spawn = new THREE.Vector3(s.x, s.y ?? -0.1, s.z); this.boardPos.set(s.x + 2, 0, s.z + 1); }
     this.diver.vehicle = this.eco.vehicle ?? null;
+    this.earToastShown = false;
     this.diver.ceiling = this.eco.ceiling;
     this.diver.spawn(spawn, s.yaw ?? Math.PI, breath);
     this.setupVehicle();

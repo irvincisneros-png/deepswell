@@ -115,6 +115,19 @@ export class Reef {
       im.instanceMatrix.needsUpdate = true;
     }
   }
+  /** Show instances of a kind only where keep(x, z, i) is true (e.g. kelp cleared inside a spreading barren). */
+  setKindWhere(kind, keep) {
+    const zero = new THREE.Matrix4().makeScale(0, 0, 0), v = new THREE.Vector3();
+    for (const { im, mats, picks } of this.byKind[kind] ?? []) {
+      mats.forEach((m, i) => {
+        v.setFromMatrixPosition(m);
+        const show = keep(v.x, v.z, i);
+        im.setMatrixAt(i, show ? m : zero);
+        if (picks[i]) picks[i].hidden = !show;
+      });
+      im.instanceMatrix.needsUpdate = true;
+    }
+  }
   dispose() {
     for (const m of this.meshes) { m.geometry.dispose(); m.material.dispose(); }
     this.group.parent?.remove(this.group);

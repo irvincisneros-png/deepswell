@@ -187,24 +187,26 @@ export const rocky = {
     ].filter(Boolean).join(' '),
     check: r => (r.max.barren > 0.5 ? ['barren'] : []),
     apply(game, s) {
-      game.world.reef.setKindFraction('kelp', Math.min(1, s.kelp / 0.62));
-      game.world.reef.setKindFraction('crayweed', Math.min(1, s.kelp / 0.62));
-      // The barren spreads outward from its starting patch: pink coralline-crusted rock and urchins replace kelp.
+      // The barren spreads outward from its starting patch: kelp is cleared inside it, thinned elsewhere by heat stress.
       const R = BARREN.r + Math.max(0, s.barren - 0.04) * 75;
+      const outside = Math.min(1, s.kelp / Math.max(0.05, 0.62 * (1 - s.barren * 0.9)));
+      const keep = (x, z, i) => Math.hypot(x - BARREN.x, z - BARREN.z) > R && ((i * 0.6180339) % 1) < outside;
+      game.world.reef.setKindWhere('kelp', keep);
+      game.world.reef.setKindWhere('crayweed', keep);
       if (Math.abs((this._lastR ?? 0) - R) > 1.5) {
         this._lastR = R;
-        game.world.terrain.recolor((x, z, c) => {
+        game.world.terrain.recolor((x, z) => {
           const d = Math.hypot(x - BARREN.x, z - BARREN.z);
           if (d > R || reefiness(x, z) < 0.3) return null;
-          const n = noise.n2(x * 0.3, z * 0.3);
-          return n > 0 ? [0.62, 0.45, 0.5] : [0.5, 0.42, 0.45];
+          return noise.n2(x * 0.3, z * 0.3) > 0 ? [0.62, 0.45, 0.5] : [0.5, 0.42, 0.45];
         });
       }
       const life = game.world.life;
+      const feeding = Object.fromEntries(speciesInfo.map(sp => [sp.id, sp.feeding]));
+      life.setAbundance(id => (id === 'bluegroper' || id === 'rocklobster' ? s.pred : feeding[id] === 'herbivore' && id !== 'urchin' ? Math.min(1, 0.3 + s.kelp) : 1));
+      // Urchins last, so the abundance pass doesn't undo the barren footprint.
       for (const a of life.agents) if (a.id === 'urchin') { a.visible = Math.hypot(a.home.x - BARREN.x, a.home.z - BARREN.z) < R && ((a.index * 0.618) % 1) < Math.min(1, 0.3 + s.urchin); life.writeMatrix(a); }
       if (life.kinds.urchin) life.kinds.urchin.mesh.instanceMatrix.needsUpdate = true;
-      const feeding = Object.fromEntries(speciesInfo.map(sp => [sp.id, sp.feeding]));
-      game.world.life.setAbundance(id => (id === 'bluegroper' || id === 'rocklobster' ? s.pred : feeding[id] === 'herbivore' ? Math.min(1, 0.3 + s.kelp) : 1));
     },
   },
 };

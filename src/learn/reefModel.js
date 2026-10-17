@@ -23,17 +23,18 @@ export function initialState() {
  * Returns an array of monthly snapshots (including month 0).
  */
 export function simulate(inputs, years = 5, start = initialState()) {
-  const s = { ...start, cots: inputs.cots ?? start.cots };
+  const s = { ...start, cots: start.month ? start.cots : (inputs.cots ?? start.cots), month: start.month ?? 0 };
   const out = [{ ...s }];
   const d = dhw(inputs.temp);
   const bleachPeak = bleachFraction(d);
   const kill = mortalityOfBleached(d);
   const nut = inputs.nutrients, fish = inputs.fishing;
   for (let m = 1; m <= years * 12; m++) {
-    const month = m % 12; // 0 = January (southern summer)
+    const abs = s.month + 1; // months since the reef's starting point (kept across continued runs)
+    const month = abs % 12; // 0 = January (southern summer)
     const dt = 1 / 12;
     // Summer heat stress peaks Feb–Mar; bleached colonies either recover their algae or die by winter.
-    const heatThisYear = inputs.every || m <= 12;
+    const heatThisYear = inputs.every || abs <= 12;
     if (month === 2 && bleachPeak > 0 && heatThisYear) {
       s.bleach = Math.max(s.bleach, bleachPeak);
       s.coral -= s.coral * bleachPeak * kill;
@@ -54,7 +55,7 @@ export function simulate(inputs, years = 5, start = initialState()) {
     s.algae += (0.9 * (1 + 2 * nut) * s.algae * free + 0.15 * free - 1.1 * s.herb * s.algae) * dt;
     s.coral = Math.min(0.85, Math.max(0.005, s.coral));
     s.algae = Math.min(0.95 - s.coral, Math.max(0.01, s.algae));
-    s.month = m;
+    s.month = abs;
     out.push({ ...s });
   }
   return out;

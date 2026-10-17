@@ -600,7 +600,10 @@ export class Life {
       desired.y += (c.y + Math.sin(a.index * 1.7) * 1.8 - a.pos.y) * 0.4;
     } else {
       a.timer -= dt;
-      if (a.timer <= 0) { a.timer = 2 + this.rnd() * 3; a.target.copy(a.home).add(new THREE.Vector3((this.rnd() - 0.5) * 3, (this.rnd() - 0.3) * 0.8, (this.rnd() - 0.5) * 3)); }
+      if (a.timer <= 0) {
+        a.timer = 2 + this.rnd() * 3; a.target.copy(a.home).add(new THREE.Vector3((this.rnd() - 0.5) * 3, (this.rnd() - 0.3) * 0.8, (this.rnd() - 0.5) * 3));
+        a.target.y = Math.max(a.target.y, this.terrain.heightAt(a.target.x, a.target.z) + (b.alt?.[0] ?? 1) + 0.3);
+      }
       desired.add(this.seek(a, a.target, b.speed * 0.8));
     }
     return desired;
@@ -617,7 +620,7 @@ export class Life {
     }
     v.cooldown -= dt;
     if (v.cooldown > 0) return;
-    const clients = this.agents.filter(a => a.b.client && a.b.type !== 'manta' && a.state !== 'leave' && a.pos.distanceTo(this.station) < 45);
+    const clients = this.agents.filter(a => a.b.client && a.visible !== false && a.b.type !== 'manta' && a.state !== 'leave' && a.pos.distanceTo(this.station) < 45);
     const manta = this.agents.find(a => a.b.type === 'manta' && a.state === 'circle');
     const c = manta ?? clients[Math.floor(this.rnd() * clients.length)];
     if (!c) return;

@@ -117,7 +117,8 @@ export const pelagic = {
       { key: 'sardine', label: 'Sardines (index)', color: '#9ac8f0' },
       { key: 'pred', label: 'Predators (index)', color: '#e0c060', dashed: true },
     ],
-    readouts: [{ key: 'phyto', label: 'phytoplankton', fmt: v => `${Math.round(v * 100)}%` }, { key: 'sardine', label: 'sardines', fmt: v => `${Math.round(v * 100)}%` }],
+    axis: 'index',
+    readouts: [{ key: 'phyto', label: 'phytoplankton index', fmt: v => v.toFixed(2) }, { key: 'sardine', label: 'sardine index', fmt: v => v.toFixed(2) }],
     simulate: planktonModel,
     explain: inp => [
       inp.upwelling > 0.6 ? 'Strong mixing brings nutrients up: expect a phytoplankton bloom.' : 'Little mixing: the sunlit layer runs short of nutrients.',
