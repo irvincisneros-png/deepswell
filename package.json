@@ -1,0 +1,11 @@
+{
+  "name": "deepswell",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Surf, freedive and study marine ecosystems — browser 3D game for Y9–10 Marine & Aquaculture Technology.",
+  "scripts": {
+    "serve": "python3 -m http.server 8450",
+    "test": "node --test tests/"
+  }
+}

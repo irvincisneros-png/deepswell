@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "deepswell",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "devserver.py",
+        "8450"
+      ],
+      "port": 8450
+    }
+  ]
+}

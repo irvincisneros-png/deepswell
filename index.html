@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DeepSwell — Surf, Freedive, Discover</title>
+  <meta name="description" content="Surf a wave, then freedive into living marine ecosystems. A 3D marine biology game for Year 9–10 Marine & Aquaculture Technology." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M4 40c10-18 26-26 44-22-8 2-14 8-16 16 6-6 16-8 28-2-12 0-20 8-22 20H4z' fill='%230fb5c9'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/build/three.module.js", "three/examples/jsm/": "./vendor/three/examples/jsm/" } }
+  </script>
+</head>
+<body>
+  <canvas id="gl" aria-label="3D game view"></canvas>
+
+  <!-- Screen effects -->
+  <div id="fx-vignette" class="fx"></div>
+  <div id="fx-flash" class="fx"></div>
+  <div id="fx-black" class="fx"></div>
+  <div id="fx-uw" class="fx"></div>
+
+  <!-- Loading -->
+  <div id="loading" class="screen show">
+    <div class="load-box">
+      <div class="logo">Deep<span>Swell</span></div>
+      <div class="bar"><i id="load-bar"></i></div>
+      <p id="load-msg">Growing the reef…</p>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div id="menu" class="screen">
+    <div class="menu-inner">
+      <header class="menu-head">
+        <div class="logo big">Deep<span>Swell</span></div>
+        <p class="tag">Surf the wave. Hold your breath. Discover what lives below.</p>
+      </header>
+      <section class="eco-pick" aria-label="Choose an ecosystem">
+        <h2>Choose a site</h2>
+        <div id="eco-cards" class="eco-cards"></div>
+      </section>
+      <div class="menu-actions">
+        <button id="btn-surf" class="btn primary">Surf &amp; dive</button>
+        <button id="btn-dive" class="btn">Dive only</button>
+        <button id="btn-journal" class="btn ghost">Field journal</button>
+        <button id="btn-missions" class="btn ghost">Missions</button>
+        <button id="btn-settings" class="btn ghost">Settings</button>
+        <button id="btn-help" class="btn ghost">How to play</button>
+      </div>
+      <footer class="menu-foot">
+        <span>Year 9–10 Marine &amp; Aquaculture Technology</span> · <a href="teacher.html">Teacher page</a> · <span id="progress-sum"></span>
+      </footer>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-top">
+      <div id="site-name"></div>
+      <div id="mission-track" class="hidden"></div>
+    </div>
+    <div id="prompt" class="prompt"></div>
+    <div id="tricks"></div>
+    <div id="toast"></div>
+    <div id="surf-hud" class="hidden">
+      <div class="score"><b id="surf-score">0</b><span>points</span></div>
+      <div class="speed"><b id="surf-speed">0</b><span>km/h</span></div>
+      <div id="surf-meter" class="meter hidden"><div class="meter-track"><i class="zone"></i><i id="surf-marker" class="marker"></i></div><span>wave</span></div>
+    </div>
+    <div id="dive-hud" class="hidden">
+      <div id="crosshair"></div>
+      <div id="target-label"></div>
+      <div class="gauges">
+        <div class="breath" title="Breath">
+          <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="trk" /><circle id="breath-ring" cx="50" cy="50" r="42" class="val" /></svg>
+          <div class="breath-txt"><b id="breath-pct">100</b><span>O₂</span></div>
+        </div>
+        <div class="depth">
+          <div><b id="depth-m">0.0</b><span>m</span></div>
+          <div class="sub"><span id="pressure">1.0 atm</span> · max <span id="max-depth">0</span> m</div>
+          <div class="sub" id="buoy"></div>
+        </div>
+      </div>
+      <div id="eq-prompt" class="hidden">Ears! Press <kbd>Q</kbd> to equalise</div>
+      <div id="viewfinder" class="hidden">
+        <div class="vf-corner tl"></div><div class="vf-corner tr"></div><div class="vf-corner bl"></div><div class="vf-corner br"></div>
+        <div class="vf-info">📷 Click to shoot · <kbd>F</kbd> exit · <span id="vf-subject"></span></div>
+      </div>
+    </div>
+    <div id="keys" class="keys"></div>
+  </div>
+
+  <!-- Panels -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="panel">
+      <button class="close" id="modal-close" aria-label="Close">✕</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+  <div id="click-to-play" class="hidden"><div>Click to look around<br><small>Esc releases the mouse</small></div></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
