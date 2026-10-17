@@ -5,8 +5,8 @@ import { species as speciesInfo, missions } from '../content/gbr.js';
 
 const noise = makeNoise(42);
 const BOMMIES = [
-  [-22, -32, 6, 5.5], [18, -48, 7, 6], [-45, -10, 5, 3.2], [35, 18, 6, 3.5], [-30, 30, 7, 3.6],
-  [8, 40, 5, 3], [52, -25, 6, 5], [-60, -45, 6, 6], [-8, 15, 4, 2.5], [25, -5, 4, 2.2],
+  [-22, -46, 6, 4.2], [18, -52, 7, 5.5], [-45, -10, 5, 3.2], [35, 18, 6, 3.5], [-30, 30, 7, 3.6],
+  [8, 40, 5, 3], [52, -25, 6, 2.2], [-60, -45, 6, 6], [-8, 15, 4, 2.5], [25, -5, 4, 2.2],
 ];
 
 function baseProfile(z) {
@@ -54,7 +54,7 @@ export function colorAt(x, z, h, slope) {
 }
 
 // Fixed points of interest
-const STATION = { x: -22, z: -32 };   // cleaning station on top of a bommie
+const STATION = { x: -22, z: -46 };   // cleaning station on top of a bommie
 const ANEMONES = [[4, 4], [-12, 9]];
 
 export const gbr = {

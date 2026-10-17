@@ -213,7 +213,8 @@ export function brainCoral(seed) {
 
 export function porites(seed) {
   const rnd = mulberry32(seed);
-  let g = new THREE.IcosahedronGeometry(1, 5);
+  let g = new THREE.IcosahedronGeometry(1, 14);
+  g.deleteAttribute('uv'); g.deleteAttribute('normal');
   g = mergeVertices(g);
   const p = g.attributes.position, v = new THREE.Vector3();
   const s = seed * 0.71;
@@ -222,8 +223,9 @@ export function porites(seed) {
     v.fromBufferAttribute(p, i).normalize();
     const big = noise.fbm3(v.x * 1.2 + s, v.y * 1.2, v.z * 1.2 + s, 3);
     const k = noise.n3(v.x * 9 + s, v.y * 9, v.z * 9);
-    knob[i] = k;
-    const r = 0.9 * (1 + big * 0.45 + k * 0.05);
+    const fine = 1 - Math.abs(noise.n3(v.x * 26 + s, v.y * 26, v.z * 26));
+    knob[i] = k * 0.6 + fine * 0.4;
+    const r = 0.9 * (1 + big * 0.45 + k * 0.06 + fine * 0.025);
     v.multiplyScalar(r);
     v.y = Math.max(v.y * 0.8, -0.15) + 0.15;
     p.setXYZ(i, v.x, v.y, v.z);
@@ -274,20 +276,29 @@ export function seaFan(seed) {
 export function anemone(seed) {
   const rnd = mulberry32(seed);
   const parts = [];
-  const column = new THREE.CylinderGeometry(0.32, 0.26, 0.12, 20, 1);
-  column.translate(0, 0.06, 0);
-  colorize(column, () => [0.55, 0.08, 0.2]);
+  const column = new THREE.CylinderGeometry(0.34, 0.28, 0.14, 24, 1);
+  column.translate(0, 0.07, 0);
+  colorize(column, () => [0.6, 0.06, 0.22]);
   parts.push(strip(column));
-  const tentBase = [0.75, 0.65, 0.35], tentTip = [0.55, 0.85, 0.35];
-  const n = 260;
+  const disc = new THREE.CircleGeometry(0.34, 24); disc.rotateX(-Math.PI / 2); disc.translate(0, 0.14, 0);
+  colorize(disc, () => [0.5, 0.45, 0.25]);
+  parts.push(strip(disc));
+  const tentBase = [0.62, 0.6, 0.32], tentMid = [0.7, 0.82, 0.4], tentTip = [0.85, 0.95, 0.55];
+  const n = 340;
   for (let i = 0; i < n; i++) {
-    const r = 0.32 * Math.sqrt(rnd());
+    const r = 0.34 * Math.sqrt(0.05 + 0.95 * rnd());
     const a = rnd() * Math.PI * 2;
-    const p = new THREE.Vector3(Math.cos(a) * r, 0.12, Math.sin(a) * r);
-    const out = new THREE.Vector3(Math.cos(a) * (0.3 + r), 1.2, Math.sin(a) * (0.3 + r)).normalize();
-    const len = 0.1 + rnd() * 0.06;
-    parts.push(tube(p, p.clone().addScaledVector(out, len), 0.016, 0.012, 4, tentBase, tentTip));
-    parts.push(cap(p.clone().addScaledVector(out, len), 0.014, tentTip));
+    const p0 = new THREE.Vector3(Math.cos(a) * r, 0.14, Math.sin(a) * r);
+    const outward = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+    const len = 0.09 + rnd() * 0.08;
+    // Two-segment tentacle curving outward, tapering to a rounded tip.
+    const d1 = outward.clone().multiplyScalar(0.25 + r).add(new THREE.Vector3(0, 1, 0)).normalize();
+    const p1 = p0.clone().addScaledVector(d1, len * 0.55);
+    const d2 = outward.clone().multiplyScalar(0.9 + r * 1.5).add(new THREE.Vector3((rnd() - 0.5) * 0.4, 0.7, (rnd() - 0.5) * 0.4)).normalize();
+    const p2 = p1.clone().addScaledVector(d2, len * 0.5);
+    parts.push(tube(p0, p1, 0.017, 0.014, 5, tentBase, tentMid));
+    parts.push(tube(p1, p2, 0.014, 0.009, 5, tentMid, tentTip));
+    parts.push(cap(p2, 0.009, tentTip));
   }
   return mergeGeometries(parts);
 }
@@ -345,12 +356,13 @@ export function seaCucumber(seed) {
 
 /** Rubble / rock lumps for filling gaps. */
 export function rock(seed) {
-  let g = new THREE.IcosahedronGeometry(0.5, 3);
+  let g = new THREE.IcosahedronGeometry(0.5, 8);
+  g.deleteAttribute('uv'); g.deleteAttribute('normal');
   g = mergeVertices(g);
   const p = g.attributes.position, v = new THREE.Vector3();
   for (let i = 0; i < p.count; i++) {
     v.fromBufferAttribute(p, i).normalize();
-    v.multiplyScalar(0.5 * (1 + noise.fbm3(v.x * 2 + seed, v.y * 2, v.z * 2, 3) * 0.5));
+    v.multiplyScalar(0.5 * (1 + noise.fbm3(v.x * 2 + seed, v.y * 2, v.z * 2, 3) * 0.5 + noise.n3(v.x * 14, v.y * 14 + seed, v.z * 14) * 0.04));
     v.y = Math.max(v.y * 0.6, -0.1) + 0.1;
     p.setXYZ(i, v.x, v.y, v.z);
   }

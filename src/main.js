@@ -81,6 +81,7 @@ class Game {
     this.enterMenu();
     const mid = params.get('mission');
     if (mid) { const m = this.eco.missions.find(x => x.id === mid); if (m) this.trackMission(m); }
+    if (params.get('mode') === 'dive') { this.preferDive = true; $('#btn-dive').classList.add('primary'); $('#btn-surf').classList.remove('primary'); }
     this.clock = new THREE.Clock();
     this.renderer.setAnimationLoop(() => this.loop());
   }
@@ -352,8 +353,13 @@ class Game {
   flash() { const f = $('#fx-flash'); f.style.transition = 'none'; f.style.opacity = 0.9; requestAnimationFrame(() => { f.style.transition = 'opacity 1.4s'; f.style.opacity = 0; }); }
 
   // ------------------------------------------------------------------ main loop
-  loop() {
-    const dt = Math.min(0.05, this.clock.getDelta());
+  /** Test helper: advance the simulation deterministically (used by automated play-tests). */
+  advance(seconds, hook) {
+    const n = Math.round(seconds * 60);
+    for (let i = 0; i < n; i++) { hook?.(this); this.loop(1 / 60, i < n - 1); }
+  }
+  loop(fixedDt, skipRender = false) {
+    const dt = fixedDt ?? Math.min(0.05, this.clock.getDelta());
     this.time += dt; this.frame++;
     globalUniforms.uTime.value = this.time;
     this.world.time = this.time;
@@ -374,6 +380,7 @@ class Game {
     this.fx.update(dt, this.camera, 0);
     this.audio.update(dt, { under: depth > 0 ? 1 : 0, roar: this.roar ?? 0, depth });
     $('#fx-uw').style.opacity = depth > 0 ? 1 : 0;
+    if (skipRender) { this.input.endFrame(); return; }
     if (this.composer) this.composer.render(); else this.renderer.render(this.scene, this.camera);
     if (this.pendingPhoto) { const img = snapshot(this.renderer.domElement); this.storePhoto(this.pendingPhoto, img); this.pendingPhoto = null; }
     this.input.endFrame();

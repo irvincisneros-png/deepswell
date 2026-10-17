@@ -187,7 +187,8 @@ export class SurfSession {
     const dir = new THREE.Vector3(-Math.cos(R.theta), 0, -Math.sin(R.theta) * Math.cos(slope));
     dir.y = Math.sin(R.theta) * Math.sin(slope);
     dir.normalize();
-    const normal = new THREE.Vector3(0, Math.cos(slope), Math.sin(slope));
+    // Board follows the face; blend toward vertical so the rider stands up like a real surfer leaning into the wave.
+    const normal = new THREE.Vector3(0, Math.cos(slope), Math.sin(slope)).lerp(new THREE.Vector3(0, 1, 0), 0.55).normalize();
     const side = new THREE.Vector3().crossVectors(dir, normal).normalize();
     const n2 = new THREE.Vector3().crossVectors(side, dir).normalize();
     const m = new THREE.Matrix4().makeBasis(dir, n2, side);
@@ -236,9 +237,9 @@ export class SurfSession {
       const R = this.ride;
       const travel = new THREE.Vector3(-Math.cos(R.theta * 0.5), 0, -Math.sin(R.theta * 0.5) * 0.5).normalize();
       const tube = this.face && this.face.curl > 0.55 && this.face.d > -6;
-      const back = tube ? 3.2 : 5.5, up = tube ? 1.0 : 2.2;
-      want = p.clone().addScaledVector(travel, -back).add(new THREE.Vector3(0, up, tube ? 0.6 : 2.6));
-      look = p.clone().addScaledVector(travel, 4).add(new THREE.Vector3(0, 0.6, tube ? 0 : -0.5));
+      const back = tube ? 3.0 : 4.6, up = tube ? 0.9 : 1.5;
+      want = p.clone().addScaledVector(travel, -back).add(new THREE.Vector3(0, up, tube ? 0.7 : 2.2));
+      look = p.clone().addScaledVector(travel, 6).add(new THREE.Vector3(0, 0.7, tube ? 0 : -1.0));
     } else if (this.state === 'wipeout') {
       want = p.clone().add(new THREE.Vector3(2, 1.2, 4)); look = p.clone();
     } else {

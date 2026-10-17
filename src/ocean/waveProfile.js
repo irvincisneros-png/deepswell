@@ -56,7 +56,7 @@ export function sampleProfile(H, steep, curl, collapse, s, y, foam, jitter = 0) 
       y[k] = catmull(p0[1], p1[1], p2[1], p3[1], t);
       // Foam: the lip tip when pitching, the whole face once collapsing.
       const lipFoam = seg >= IDX_CREST && seg <= IDX_TIP + 1 ? smoothstep(0.55, 1, curl) * (seg === IDX_TIP ? 1 : 0.5) : 0;
-      foam[k] = Math.max(lipFoam, collapse * (seg >= 2 && seg <= 9 ? 1 : 0.35));
+      foam[k] = Math.max(lipFoam, collapse * (seg >= 2 && seg <= 8 ? 1 : seg === 9 ? (1 - j / n) : 0));
       k++;
     }
   }

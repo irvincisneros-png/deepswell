@@ -33,12 +33,15 @@ function boardGeometry() {
   return g;
 }
 
+// Rider frame: +x toward the board's nose, +y up, chest faces +z (the toe-side rail).
+const THIGH = 0.42, SHIN = 0.42;
+const PRONE_Q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(
+  new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -1, 0)));
 const POSES = {
-  // [hips y, hip yaw, torso pitch, torso yaw, head pitch, lArm(shoulder x,z, elbow), rArm, lLeg(hip x, knee), rLeg]
-  paddle: { body: [0.12, 0, 1.45, 0, -1.0], ls: [-2.6, 0.2], le: 0.3, rs: [-2.6, -0.2], re: 0.3, lh: [0.0, 0.05], lk: 0.2, rh: [0.0, -0.05], rk: 0.2, prone: 1 },
-  stand: { body: [0.78, 1.3, 0.35, -0.6, -0.2], ls: [0.2, 1.0], le: 0.6, rs: [-0.4, -1.1], re: 0.4, lh: [0.55, 0.35], lk: 1.0, rh: [-0.45, 0.25], rk: 0.9, prone: 0 },
-  crouch: { body: [0.55, 1.3, 0.75, -0.5, -0.5], ls: [0.6, 0.6], le: 1.0, rs: [-0.2, -0.8], re: 0.9, lh: [0.85, 0.35], lk: 1.9, rh: [-0.2, 0.25], rk: 1.8, prone: 0 },
-  sit: { body: [0.1, 0, 0.0, 0, 0], ls: [0.3, 0.6], le: 0.4, rs: [0.3, -0.6], re: 0.4, lh: [1.4, 0.4], lk: 1.4, rh: [1.4, -0.4], rk: 1.4, prone: 0 },
+  paddle: { prone: 1, crouch: 0, lean: 0, frontArm: 0, backArm: 0 },
+  stand: { prone: 0, crouch: 0.25, lean: 0.25, frontArm: 1.15, backArm: -0.8 },
+  crouch: { prone: 0, crouch: 0.85, lean: 0.6, frontArm: 0.8, backArm: -0.5 },
+  sit: { prone: 0, crouch: 1, lean: 0.1, frontArm: 0.4, backArm: -0.4 },
 };
 
 export class Surfer {
@@ -47,82 +50,103 @@ export class Surfer {
     scene.add(this.root);
     const boardMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0.05 });
     this.board = new THREE.Mesh(boardGeometry(), boardMat);
-    // Fins (thruster)
     const finGeo = new THREE.BufferGeometry();
     finGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, -0.1, 0, 0, -0.09, -0.11, 0], 3));
     finGeo.computeVertexNormals();
     const finMat = new THREE.MeshStandardMaterial({ color: 0x222831, side: THREE.DoubleSide, roughness: 0.4 });
     for (const [x, z] of [[-0.8, 0], [-0.68, 0.17], [-0.68, -0.17]]) { const f = new THREE.Mesh(finGeo, finMat); f.position.set(x, 0.0, z); this.board.add(f); }
     this.root.add(this.board);
-
-    const suit = new THREE.MeshStandardMaterial({ color: 0x14181d, roughness: 0.55, metalness: 0.0 });
-    const panel = new THREE.MeshStandardMaterial({ color: 0x0f8fa8, roughness: 0.5 });
+    const suit = new THREE.MeshStandardMaterial({ color: 0x15191e, roughness: 0.5 });
+    const panel = new THREE.MeshStandardMaterial({ color: 0x0f9fb8, roughness: 0.45 });
     const skin = new THREE.MeshStandardMaterial({ color: 0xc58c62, roughness: 0.6 });
-    const hair = new THREE.MeshStandardMaterial({ color: 0x2a1a10, roughness: 0.9 });
+    const hair = new THREE.MeshStandardMaterial({ color: 0x3a2414, roughness: 0.9 });
     this.mats = [boardMat, finMat, suit, panel, skin, hair];
-    const limb = (len, r, mat) => { const g = new THREE.CapsuleGeometry(r, len, 4, 10); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, mat); };
-    // Hierarchy: rider -> hips -> torso -> (head, shoulders) ; hips -> legs
+    const limb = (len, r, mat) => { const g = new THREE.CapsuleGeometry(r, len - r * 2, 4, 10); g.translate(0, -len / 2, 0); return new THREE.Mesh(g, mat); };
     this.rider = new THREE.Group(); this.root.add(this.rider);
-    this.hips = new THREE.Group(); this.rider.add(this.hips);
-    const pelvis = new THREE.Mesh(new THREE.CapsuleGeometry(0.13, 0.12, 4, 10), suit); pelvis.rotation.z = Math.PI / 2; this.hips.add(pelvis);
-    this.torso = new THREE.Group(); this.hips.add(this.torso);
-    const chest = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.32, 4, 12), suit); chest.position.y = 0.26; chest.scale.set(1, 1, 0.75); this.torso.add(chest);
-    const stripe = new THREE.Mesh(new THREE.CapsuleGeometry(0.152, 0.1, 4, 12), panel); stripe.position.y = 0.36; stripe.scale.set(1, 1, 0.76); this.torso.add(stripe);
-    this.neck = new THREE.Group(); this.neck.position.y = 0.56; this.torso.add(this.neck);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.105, 16, 12), skin); head.position.y = 0.1; head.scale.set(0.9, 1.05, 0.95); this.neck.add(head);
-    const hairM = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair); hairM.position.y = 0.115; hairM.rotation.x = -0.25; this.neck.add(hairM);
-    const arm = (side) => {
-      const sh = new THREE.Group(); sh.position.set(0, 0.47, 0.19 * side); this.torso.add(sh);
-      const up = limb(0.24, 0.055, suit); sh.add(up);
+    this.pelvis = new THREE.Group(); this.rider.add(this.pelvis);
+    const hipsM = new THREE.Mesh(new THREE.CapsuleGeometry(0.12, 0.14, 4, 10), suit); hipsM.rotation.z = Math.PI / 2; hipsM.scale.set(1, 1, 0.8); this.pelvis.add(hipsM);
+    this.spine = new THREE.Group(); this.pelvis.add(this.spine);
+    const chest = new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.3, 4, 12), suit); chest.position.y = 0.27; chest.scale.set(1.15, 1, 0.75); this.spine.add(chest);
+    const band = new THREE.Mesh(new THREE.CapsuleGeometry(0.152, 0.06, 4, 12), panel); band.position.y = 0.4; band.scale.set(1.16, 1, 0.76); this.spine.add(band);
+    this.neck = new THREE.Group(); this.neck.position.y = 0.56; this.spine.add(this.neck);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.1, 18, 14), skin); head.position.y = 0.1; head.scale.set(0.92, 1.08, 1); this.neck.add(head);
+    const hairM = new THREE.Mesh(new THREE.SphereGeometry(0.106, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), hair); hairM.position.y = 0.115; hairM.rotation.x = -0.3; this.neck.add(hairM);
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 4), skin); nose.position.set(0, 0.1, 0.1); this.neck.add(nose);
+    const arm = (sx) => {
+      const sh = new THREE.Group(); sh.position.set(0.2 * sx, 0.47, 0); this.spine.add(sh);
+      sh.add(limb(0.3, 0.052, suit));
       const el = new THREE.Group(); el.position.y = -0.3; sh.add(el);
-      const lo = limb(0.22, 0.045, skin); el.add(lo);
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), skin); hand.position.y = -0.3; el.add(hand);
+      el.add(limb(0.27, 0.042, skin));
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 6), skin); hand.position.y = -0.29; el.add(hand);
       return { sh, el };
     };
-    const leg = (side) => {
-      const hp = new THREE.Group(); hp.position.set(0, -0.02, 0.1 * side); this.hips.add(hp);
-      const th = limb(0.34, 0.075, suit); hp.add(th);
-      const kn = new THREE.Group(); kn.position.y = -0.42; hp.add(kn);
-      const sh = limb(0.34, 0.06, suit); kn.add(sh);
-      const ft = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.14, 3, 8), skin); ft.rotation.z = Math.PI / 2; ft.position.set(0.05, -0.43, 0); kn.add(ft);
+    const leg = (sx) => {
+      const hp = new THREE.Group(); hp.position.set(0.1 * sx, -0.04, 0); this.pelvis.add(hp);
+      hp.add(limb(THIGH, 0.075, suit));
+      const kn = new THREE.Group(); kn.position.y = -THIGH; hp.add(kn);
+      kn.add(limb(SHIN, 0.058, suit));
+      const ft = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.13, 3, 8), skin); ft.rotation.x = Math.PI / 2; ft.position.set(0, -SHIN, 0.05); kn.add(ft);
       return { hp, kn };
     };
-    this.la = arm(1); this.ra = arm(-1); this.ll = leg(1); this.rl = leg(-1);
-    this.cur = structuredClone(POSES.paddle);
-    this.pose = 'paddle'; this.lean = 0; this.t = 0; this.tumble = null;
+    this.front = { arm: arm(1), leg: leg(1) };
+    this.back = { arm: arm(-1), leg: leg(-1) };
+    this.cur = { ...POSES.paddle };
+    this.pose = 'paddle'; this.t = 0; this.tumble = null;
+    this._qs = new THREE.Quaternion();
   }
   setPose(name) { this.pose = name; }
   update(dt, { paddling = false, lean = 0, pump = 0 } = {}) {
     this.t += dt;
     const target = POSES[this.pose];
-    const k = 1 - Math.exp(-(this.pose === 'stand' || this.pose === 'crouch' ? 8 : 5) * dt);
+    const k = 1 - Math.exp(-(this.pose === 'paddle' ? 5 : 9) * dt);
+    for (const key of Object.keys(target)) this.cur[key] += (target[key] - this.cur[key]) * k;
     const c = this.cur;
-    const lerpArr = (a, b) => a.forEach((v, i) => { a[i] = v + (b[i] - v) * k; });
-    lerpArr(c.body, target.body); lerpArr(c.ls, target.ls); lerpArr(c.rs, target.rs); lerpArr(c.lh, target.lh); lerpArr(c.rh, target.rh);
-    for (const key of ['le', 're', 'lk', 'rk', 'prone']) c[key] += (target[key] - c[key]) * k;
-    let ls = c.ls[0], rs = c.rs[0];
-    if (paddling && this.pose === 'paddle') { ls += Math.sin(this.t * 5) * 1.2; rs += Math.sin(this.t * 5 + Math.PI) * 1.2; }
-    const [hy, hyaw, tp, tyaw, hp] = c.body;
-    // Prone: rider lies along the board (rotate the whole rider forward 90°).
-    this.rider.rotation.z = -c.prone * Math.PI / 2;
-    this.rider.position.set(c.prone * 0.3, 0.08 + (1 - c.prone) * 0.0 + pump * 0.05, 0);
-    this.hips.position.y = hy * (1 - c.prone) + c.prone * 0.06;
-    this.hips.rotation.y = hyaw;
-    this.hips.rotation.x = lean * 0.5;
-    this.torso.rotation.z = -tp * (1 - c.prone);
-    this.torso.rotation.y = tyaw;
-    this.torso.rotation.x = lean * 0.4;
-    this.neck.rotation.z = hp * (c.prone > 0.5 ? -0.6 : 1) + (c.prone > 0.5 ? 1.1 : 0);
-    this.la.sh.rotation.z = ls; this.la.sh.rotation.x = c.ls[1]; this.la.el.rotation.z = c.le;
-    this.ra.sh.rotation.z = rs; this.ra.sh.rotation.x = c.rs[1]; this.ra.el.rotation.z = c.re;
-    this.ll.hp.rotation.z = c.lh[0]; this.ll.hp.rotation.x = c.lh[1]; this.ll.kn.rotation.z = -c.lk;
-    this.rl.hp.rotation.z = c.rh[0]; this.rl.hp.rotation.x = c.rh[1]; this.rl.kn.rotation.z = -c.rk;
+    const pr = c.prone;
+    // Standing frame vs prone frame
+    this.rider.quaternion.copy(this._qs.identity()).slerp(PRONE_Q, pr);
+    // Stance: feet ±0.3 m along the board; hip height from crouch; legs solved with 2-bone IK.
+    const crouch = Math.min(1, c.crouch + pump * 0.25);
+    const hipH = (THIGH + SHIN) * (0.97 - crouch * 0.42);
+    const standY = 0.06 + hipH;
+    this.rider.position.set(pr * 0.15, (1 - pr) * standY + pr * 0.12, pr * 0);
+    this.pelvis.rotation.set(0, 0, 0);
+    for (const [L, sx] of [[this.front, 1], [this.back, -1]]) {
+      if (pr > 0.5) {
+        L.leg.hp.rotation.set(0.1, 0, sx * 0.05); L.leg.kn.rotation.set(-0.2 - Math.max(0, Math.sin(this.t * 3 + sx)) * 0.2 * (paddling ? 1 : 0), 0, 0);
+        continue;
+      }
+      const footX = 0.3 * sx - 0.1 * sx;
+      const d = Math.min(THIGH + SHIN - 0.01, Math.hypot(hipH, footX));
+      const interior = Math.acos(Math.min(1, Math.max(-1, (THIGH * THIGH + SHIN * SHIN - d * d) / (2 * THIGH * SHIN))));
+      const bend = Math.PI - interior;
+      const splay = Math.atan2(footX, hipH);
+      const a = Math.acos(Math.min(1, Math.max(-1, (THIGH * THIGH + d * d - SHIN * SHIN) / (2 * THIGH * d))));
+      L.leg.hp.rotation.set(-a, 0, splay);
+      L.leg.kn.rotation.set(bend, 0, 0);
+    }
+    // Torso leans forward over the toes and into turns; head looks toward the nose.
+    this.spine.rotation.set(c.lean * 0.9 * (1 - pr) - pr * 0.15, 0, lean * 0.35 * (1 - pr));
+    this.neck.rotation.set(-c.lean * 0.5 * (1 - pr) - pr * 0.9, (1 - pr) * 1.2, 0);
+    if (pr > 0.5) {
+      // Prone paddling: alternate arm strokes through the water.
+      const ph = this.t * 5.5;
+      for (const [A, off] of [[this.front.arm, 0], [this.back.arm, Math.PI]]) {
+        const st = paddling ? ph + off : 1.2 + off * 0.3;
+        A.sh.rotation.set(-Math.PI / 2 - (Math.PI / 2) * Math.cos(st), 0, 0);
+        A.el.rotation.set(-0.2, 0, 0);
+      }
+    } else {
+      this.front.arm.sh.rotation.set(-0.2, 0, c.frontArm + lean * 0.3);
+      this.front.arm.el.rotation.set(-0.5, 0, 0);
+      this.back.arm.sh.rotation.set(-0.2, 0, c.backArm + lean * 0.3);
+      this.back.arm.el.rotation.set(-0.6, 0, 0);
+    }
     if (this.tumble) {
       this.tumble.t += dt;
-      this.rider.rotation.x += dt * this.tumble.spin.x; this.rider.rotation.y += dt * this.tumble.spin.y;
+      this.rider.rotation.x += this.tumble.t * this.tumble.spin.x * 0.6; this.rider.rotation.y += this.tumble.t * this.tumble.spin.y * 0.5;
       this.board.rotation.z += dt * 3; this.board.rotation.x += dt * 2;
-    } else { this.rider.rotation.x = 0; this.rider.rotation.y = 0; this.board.rotation.set(0, 0, 0); }
+    } else this.board.rotation.set(0, 0, 0);
   }
   wipeout() { this.tumble = { t: 0, spin: new THREE.Vector3(4 + Math.random() * 3, 3 + Math.random() * 2, 0) }; this.setPose('sit'); }
-  reset() { this.tumble = null; this.setPose('paddle'); }
+  reset() { this.tumble = null; this.setPose('paddle'); this.cur = { ...POSES.paddle }; }
 }

@@ -20,6 +20,18 @@ const GENERATORS = {
 };
 export function addGenerator(name, def) { GENERATORS[name] = def; }
 
+/** Boost vertex-colour saturation: water strips colour with depth, so corals start out vivid. */
+function saturate(geo, sat, val) {
+  const c = geo.attributes.color; if (!c) return geo;
+  const col = new THREE.Color(), hsl = {};
+  for (let i = 0; i < c.count; i++) {
+    col.setRGB(c.getX(i), c.getY(i), c.getZ(i)); col.getHSL(hsl);
+    col.setHSL(hsl.h, Math.min(1, hsl.s * sat), hsl.l * val);
+    c.setXYZ(i, col.r, col.g, col.b);
+  }
+  return geo;
+}
+
 export class Reef {
   constructor(scene, eco, terrain, quality, seed = 11) {
     this.group = new THREE.Group();
@@ -33,7 +45,7 @@ export class Reef {
       const gen = GENERATORS[kind];
       if (!gen) continue;
       const count = Math.round(count0 * quality.coralScale);
-      const geos = Array.from({ length: gen.variants }, (_, i) => gen.fn(1000 + i * 17 + seed));
+      const geos = Array.from({ length: gen.variants }, (_, i) => saturate(gen.fn(1000 + i * 17 + seed), kind === 'rock' ? 1.1 : 1.45, kind === 'rock' ? 0.85 : 0.9));
       const placements = geos.map(() => []);
       let tries = 0;
       let cx = 0, cz = 0, left = 0;
@@ -71,8 +83,9 @@ export class Reef {
           q.setFromEuler(e3);
           m.compose(new THREE.Vector3(p.x, p.y, p.z), q, new THREE.Vector3(p.s, p.s * (0.85 + rnd() * 0.3), p.s));
           im.setMatrixAt(i, m);
-          const v = 0.85 + rnd() * 0.3;
-          tint.setRGB(v, v * (0.92 + rnd() * 0.16), v * (0.9 + rnd() * 0.2));
+          // Colony-to-colony colour variation (hue shifts as well as brightness).
+          const v = 0.8 + rnd() * 0.35, hueShift = rnd();
+          tint.setRGB(v * (hueShift < 0.33 ? 1.1 : 0.92), v * (hueShift > 0.66 ? 1.08 : 0.95), v * (hueShift > 0.33 && hueShift < 0.66 ? 1.12 : 0.9));
           im.setColorAt(i, tint);
           bleach[i] = 0.15 + rnd() * 0.8; // individual colony thresholds -> patchy bleaching
           if (kind !== 'rock') this.picks.push({ x: p.x, y: p.y + gen.radius * p.s * 0.5, z: p.z, r: gen.radius * p.s * 0.8, id: gen.as ?? kind, kind: 'coral' });

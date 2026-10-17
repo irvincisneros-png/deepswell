@@ -128,7 +128,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
         col = mix(col, skyColor(normalize(vec3(-V.x, 0.02, -V.z))), hz);
         // Clear tropical water: see the reef when looking down into the shallows.
         alpha = clamp(0.42 + fres * 1.3 + smoothstep(3.0, 26.0, wdepth) * 0.6 + foam + hz, 0.0, 1.0);
-        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(0.04, 0.25, thick));' : ''}
+        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(0.12, 0.45, thick));' : ''}
       } else {
         // Looking up from below: Snell's window shows the sky, outside it total internal reflection.
         vec3 Nb = -N;

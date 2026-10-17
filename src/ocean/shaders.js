@@ -93,7 +93,7 @@ export function patchUnderwater(material, opts = {}) {
           wp0 = (modelMatrix * instanceMatrix * vec4(0.0,0.0,0.0,1.0)).xyz;
         #endif
         float hgt = max(transformed.y, 0.0);
-        float ph = uTime * 1.1 + wp0.x * 0.3 + wp0.z * 0.2;
+        float ph = uTime * 1.1 + wp0.x * 0.3 + wp0.z * 0.2 + (transformed.x + transformed.z) * 6.0;
         transformed.x += sin(ph) * uSway * hgt * hgt;
         transformed.z += cos(ph * 0.8) * uSway * 0.6 * hgt * hgt;
       `;

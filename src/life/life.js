@@ -166,10 +166,6 @@ export class Life {
       else if (id === 'cots' && tables.length) {
         const c = tables[Math.floor(this.rnd() * tables.length)];
         pos = new THREE.Vector3(c.x + (this.rnd() - 0.5) * 0.4, c.y + c.r * 0.35, c.z + (this.rnd() - 0.5) * 0.4);
-        // White feeding scar where the starfish has digested the coral tissue.
-        const scar = new THREE.Mesh(new THREE.CircleGeometry(0.45, 20), new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.9, transparent: true, opacity: 0.85, polygonOffset: true, polygonOffsetFactor: -2 }));
-        scar.rotation.x = -Math.PI / 2; scar.position.copy(pos).y -= 0.03;
-        this.group.add(scar);
       } else if (id === 'cots' || b.type === 'static') { pos = this.randomReef(-14, -3); }
       else pos = this.randomSand();
       if (id === 'cots' && !tables.length) pos.y += 0.05;

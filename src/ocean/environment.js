@@ -128,10 +128,10 @@ export class Environment {
       globalUniforms.uFogDensity.value = this.fog.density;
       this.scene.background = this.fog.color;
       this.renderer.toneMappingExposure = 0.85;
-      this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.7;
+      this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.6; this.scene.environmentIntensity = 0.3;
     } else {
       this.renderer.toneMappingExposure = 1.0;
-      this.sun.intensity = this.sunBase; this.hemi.intensity = this.hemiBase;
+      this.sun.intensity = this.sunBase; this.hemi.intensity = this.hemiBase; this.scene.environmentIntensity = 0.6;
       this.fog.color.copy(this.fogAbove);
       this.fog.density = 0.0011;
       globalUniforms.uFogColor.value.copy(this.fogBelow);
