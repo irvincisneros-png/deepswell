@@ -79,7 +79,7 @@ class Game {
   async start() {
     const bar = $('#load-bar'), msg = $('#load-msg');
     await this.world.load(this.eco, (f, m) => { bar.style.width = `${f * 100}%`; msg.textContent = m; });
-    this.ensureBoat();
+    this.ensureBoat(); this.resetEcoState();
     this.renderer.compile(this.scene, this.camera);
     $('#loading').classList.remove('show');
     this.enterMenu();
@@ -111,7 +111,7 @@ class Game {
     $('#loading').classList.add('show'); $('#menu').classList.remove('show');
     this.surfSession = null;
     await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
-    this.ensureBoat();
+    this.ensureBoat(); this.resetEcoState();
     $('#loading').classList.remove('show');
     this.activeMission = null; this.updateMissionHUD();
     this.bindMenu();
@@ -124,6 +124,7 @@ class Game {
   }
   enterMenu() {
     this.mode = 'menu';
+    this.setupVehicle();
     this.exitCameraMode();
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     this.input.wantLock = false; this.input.unlock();
@@ -188,7 +189,7 @@ class Game {
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     const sub = this.eco.vehicle === 'sub';
     this.setKeys(sub
-      ? [['WASD', 'thrusters'], ['Space/C', 'ascend/descend'], ['Shift', 'boost'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', 'return to ship'], ['P', 'pause']]
+      ? [['WASD', 'thrusters'], ['Space/C', 'ascend/descend'], ['Shift', 'boost'], ['T', 'lights'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', 'return to ship'], ['P', 'pause']]
       : [['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', this.eco.surf ? 'board' : 'boat'], ['P', 'pause']]);
     document.body.classList.toggle('sub-mode', sub);
     if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); this.audio.bubbles(14, 300); }
@@ -212,7 +213,8 @@ class Game {
       if (c === 'KeyJ') this.panels.journal(this.eco, ECOSYSTEMS, this.progress);
       if (c === 'KeyM') this.openMissions();
       if (c === 'KeyL') this.openLab();
-      if (c === 'KeyE' && this.eco.surf) this.tryBoard();
+      if (c === 'KeyE') this.tryBoard();
+      if (c === 'KeyT' && this.subLights) { this.subLights.visible = !this.subLights.visible; this.toast(this.subLights.visible ? 'Lights on.' : 'Lights off — let your eyes adjust and watch for living light.'); }
     });
   }
   setKeys(list) { $('#keys').innerHTML = list.map(([k, v]) => `<span><kbd>${k}</kbd> ${v}</span>`).join(''); }
@@ -246,13 +248,21 @@ class Game {
       const g = new THREE.Group();
       for (const x of [-0.6, 0.6]) {
         const sp = new THREE.SpotLight(0xdff2ff, 26, 40, 0.5, 0.55, 2);
-        sp.position.set(x, -0.3, 0); sp.target.position.set(x * 0.3, -0.6, -10);
+        sp.position.set(x, -0.3, 0); sp.target.position.set(x * 0.3, -0.25, -10);
         g.add(sp, sp.target);
       }
       const fill = new THREE.PointLight(0x9fc8ff, 3, 10, 2); fill.position.set(0, 0, -1); g.add(fill);
       this.camera.add(g); this.subLights = g;
       if (!this.camera.parent) this.scene.add(this.camera);
     }
+  }
+  /** Put the ecosystem in its default (pre-lab) state. */
+  resetEcoState() {
+    const L = this.eco.lab;
+    if (!L) return;
+    L._lastR = null;
+    L.apply(this, L.simulate(L.defaults, 0)[0]);
+    if (this.panels.labState) delete this.panels.labState[this.eco.id];
   }
   ensureBoat() {
     if (!this.eco.boat) { if (this.boat) this.boat.visible = false; return; }
@@ -476,9 +486,11 @@ class Game {
       this.camera.position.copy(this.menuCam);
       this.camera.lookAt(px + 8, w.H * 0.6, w.z - 2);
     } else {
-      const a = this.menuT * 0.05;
-      this.camera.position.set(Math.cos(a) * 25, -8, Math.sin(a) * 25);
-      this.camera.lookAt(0, -12, 0);
+      // Sites without surf: slow orbit around a signature scene.
+      const m = this.eco.menuCam ?? { look: [0, -12, 0], r: 25, y: -8 };
+      const a = this.menuT * 0.04;
+      this.camera.position.set(m.look[0] + Math.cos(a) * m.r, m.y, m.look[2] + Math.sin(a) * m.r);
+      this.camera.lookAt(m.look[0], m.look[1], m.look[2]);
     }
   }
 
@@ -588,7 +600,7 @@ class Game {
     if (e === 'surface') { this.audio.breath(true); this.fx.bubbleBurst(d.pos, 6, 0.2); if (d.maxDepth > 3) this.toast(`Surfaced from ${d.maxDepth.toFixed(1)} m. Breathe and recover before the next dive.`); }
     if (e === 'dive') { this.audio.bubbles(4, 600); }
     if (e === 'equalise') { this.audio.blip(330, 0.12, 0.05); }
-    if (e === 'earPain') this.toast('Ear pain! Stop descending, rise a little (Space) and equalise gently (Q). If it won\'t clear, end the dive — never force it.', 'warn');
+    if (e === 'earPain' && !this.earToastShown) this.earToastShown = true, this.toast('Ear pain! Stop descending, rise a little (Space) and equalise gently (Q). If it won\'t clear, end the dive — never force it.', 'warn');
     if (e === 'eqFail') this.toast('Can\'t equalise under pain — rise about a metre first, then press Q.', 'warn');
     if (e === 'lowO2') this.toast('O₂ reserve low — ascend now. (This gauge is a game reserve: real divers get no reliable warning before blackout.)', 'warn');
     if (e === 'blackout') this.blackout();

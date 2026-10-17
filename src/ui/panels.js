@@ -181,6 +181,7 @@ export class Panels {
         <div>
           ${sliders.map(sl => `<div class="slider"><label for="s-${sl.id}">${esc(sl.label)} <b id="v-${sl.id}"></b></label><input id="s-${sl.id}" type="range" min="${sl.min}" max="${sl.max}" step="${sl.step}">${sl.help ? `<small>${esc(sl.help)}</small>` : ''}</div>`).join('')}
           ${(L.toggles ?? []).map(t => `<label style="font-size:14px;display:block;margin:6px 0"><input type="checkbox" id="t-${t.id}"> ${esc(t.label)}</label>`).join('')}
+          <label style="font-size:14px;display:block;margin:6px 0;color:var(--accent)"><input type="checkbox" id="lab-continue"> Continue from the ecosystem as it is now (don't reset)</label>
           <p><button class="btn primary" id="lab-run">▶ Run time-lapse</button> <button class="btn" id="lab-look">Look at the reef</button> <button class="btn ghost" id="lab-reset">Reset</button></p>
           <p style="font-size:13px;color:var(--muted)">${esc(L.note ?? 'A simplified teaching model: it shows the direction of change, not a forecast.')}</p>
         </div>
@@ -233,7 +234,8 @@ export class Panels {
     $('#lab-run').onclick = () => {
       sync();
       const gen = this.labGen = (this.labGen ?? 0) + 1; // a new run cancels any previous one
-      const series = st.series = L.simulate(inp, inp.years);
+      const from = $('#lab-continue').checked && st.series ? st.series[st.idx] : null;
+      const series = st.series = L.simulate(inp, inp.years, from);
       const runInputs = { ...inp };
       st.ran = { ...inp }; $('#lab-pending').textContent = '';
       const t0 = performance.now(), dur = 1200 + inp.years * 900;

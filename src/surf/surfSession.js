@@ -184,7 +184,7 @@ export class SurfSession {
       return this.kickOut('Kick-out over the back of the wave.');
     }
     if (R.ft < -0.35 || (R.v < 1.5 && R.time > 1.5)) return this.kickOut(R.time > 4 ? 'The wave outran you — ride finished.' : 'You lost the wave — stay on the steep part of the face for speed.');
-    if (face.H < 0.55) return this.kickOut('The wave faded out in the lagoon — great ride!');
+    if (face.H < 0.55) return this.kickOut('The wave faded out in the shallows — great ride!');
     R.ft = clamp(R.ft, -0.5, 1.1);
     // Place the board on the face.
     const f2 = sampleFace(w, this.pos.x, clamp(R.ft, 0, 1), this._face2 || (this._face2 = {}));

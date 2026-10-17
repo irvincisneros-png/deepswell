@@ -114,6 +114,7 @@ export const deep = {
   bounds: { xMin: -150, xMax: 150, zMin: -150, zMax: 150 },
   vehicle: 'sub', ceiling: -150,
   water: {
+    shafts: 0,
     absorb: [0, 0, 0], caustics: 0, fog: 0x02101c, fogDeep: 0x000306, fogDensity: 0.05, fogDepthScale: 700,
     shallow: 0x0a3050, mid: 0x062038, deep: 0x020a14,
     skyTop: 0x1a4a8a, skyHorizon: 0x8ab0d0, sun: [0.3, 0.9, -0.3], sunIntensity: 0, ambient: 0.05, envBelow: 0,
@@ -121,6 +122,7 @@ export const deep = {
   },
   surf: null,
   diveSpawn: { x: 0, y: -170, z: -70, yaw: Math.PI },
+  menuCam: { look: [-28, -619, 14], r: 9, y: -603 },
   diveLabel: 'Launch submersible',
   diveIntro: 'Submersible launched at 170 m — sunlight is almost gone. Hold C to descend (Shift to boost) toward the seamount summit at about 600 m. Your lights only reach a few metres: look for living light.',
   boundsMsg: 'Sonar warning: leaving the survey area. Turn back toward the seamount.',

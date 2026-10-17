@@ -128,6 +128,7 @@ export const rocky = {
   heightAt, colorAt, reefiness,
   bounds: { xMin: -75, xMax: 75, zMin: -90, zMax: 60 },
   water: {
+    shafts: 0,
     absorb: [0.34, 0.1, 0.09], fog: 0x2d6a6c, fogDeep: 0x0f3236, fogDensity: 0.06,
     shallow: 0x5aa59a, mid: 0x2a7a80, deep: 0x0e3a48,
     skyTop: 0x3a78c0, skyHorizon: 0xc0d8e2, sun: [0.55, 0.62, -0.3], sunColor: 0xfff0dc, sunIntensity: 2.3,
@@ -139,7 +140,15 @@ export const rocky = {
   island: { x: 0, z: 290, r: 240, h: 20 }, islandKind: 'headland',
   speciesInfo, missions,
   placers: {
-    barren: (rnd, terrain) => { const a = rnd() * 6.283, r = BARREN.r * Math.sqrt(rnd()); const x = BARREN.x + Math.cos(a) * r, z = BARREN.z + Math.sin(a) * r; return new THREE.Vector3(x, terrain.heightAt(x, z), z); },
+    // Urchins are scattered across the whole reef; outside the starting barren they are hidden until a lab run spreads it.
+    barren: (rnd, terrain) => {
+      for (let i = 0; i < 60; i++) {
+        const a = rnd() * 6.283, r = (i < 30 && rnd() < 0.45 ? BARREN.r : 80) * Math.sqrt(rnd());
+        const x = BARREN.x + Math.cos(a) * r, z = BARREN.z + Math.sin(a) * r;
+        if (reefiness(x, z) > 0.3) return new THREE.Vector3(x, terrain.heightAt(x, z), z);
+      }
+      return new THREE.Vector3(BARREN.x, terrain.heightAt(BARREN.x, BARREN.z), BARREN.z);
+    },
   },
   coral: [
     ['kelp', 1300, (x, z, h) => (inBarren(x, z) ? 0 : 1) * (h < -3 && h > -13 ? 1 : 0.1)],
@@ -150,7 +159,7 @@ export const rocky = {
   ],
   life: {
     bluegroper: 3, redmorwong: 8, mado: 60, luderick: 14, kingfish: 25, oldwife: 6, snapper: 8, easternbluedevil: 3,
-    greynurse: 3, portjackson: 4, wobbegong: 3, fiddlerray: 3, weedyseadragon: 5, octopus: 3, urchin: 140, abalone: 25, rocklobster: 5, cunjevoi: 30,
+    greynurse: 3, portjackson: 4, wobbegong: 3, fiddlerray: 3, weedyseadragon: 5, octopus: 3, urchin: 420, abalone: 25, rocklobster: 5, cunjevoi: 30,
   },
   lab: {
     title: 'Kelp forest lab',
@@ -180,7 +189,20 @@ export const rocky = {
     apply(game, s) {
       game.world.reef.setKindFraction('kelp', Math.min(1, s.kelp / 0.62));
       game.world.reef.setKindFraction('crayweed', Math.min(1, s.kelp / 0.62));
-      game.world.life.setCount('urchin', Math.min(1, s.urchin * 1.6));
+      // The barren spreads outward from its starting patch: pink coralline-crusted rock and urchins replace kelp.
+      const R = BARREN.r + Math.max(0, s.barren - 0.04) * 75;
+      if (Math.abs((this._lastR ?? 0) - R) > 1.5) {
+        this._lastR = R;
+        game.world.terrain.recolor((x, z, c) => {
+          const d = Math.hypot(x - BARREN.x, z - BARREN.z);
+          if (d > R || reefiness(x, z) < 0.3) return null;
+          const n = noise.n2(x * 0.3, z * 0.3);
+          return n > 0 ? [0.62, 0.45, 0.5] : [0.5, 0.42, 0.45];
+        });
+      }
+      const life = game.world.life;
+      for (const a of life.agents) if (a.id === 'urchin') { a.visible = Math.hypot(a.home.x - BARREN.x, a.home.z - BARREN.z) < R && ((a.index * 0.618) % 1) < Math.min(1, 0.3 + s.urchin); life.writeMatrix(a); }
+      if (life.kinds.urchin) life.kinds.urchin.mesh.instanceMatrix.needsUpdate = true;
       const feeding = Object.fromEntries(speciesInfo.map(sp => [sp.id, sp.feeding]));
       game.world.life.setAbundance(id => (id === 'bluegroper' || id === 'rocklobster' ? s.pred : feeding[id] === 'herbivore' ? Math.min(1, 0.3 + s.kelp) : 1));
     },

@@ -117,7 +117,7 @@ export const gbr = {
       { key: 'cots', label: 'Starfish (relative index)', color: '#c58bff', dashed: true },
     ],
     readouts: [{ key: 'coral', label: 'coral cover', fmt: v => `${Math.round(v * 100)}%` }, { key: 'algae', label: 'algae cover', fmt: v => `${Math.round(v * 100)}%` }],
-    simulate: (inp, years) => simulate(inp, years),
+    simulate: (inp, years, start) => simulate(inp, years, start ?? undefined),
     explain,
     check: r => (r.max.bleach > 0.5 ? ['bleaching'] : []),
     apply(game, s) {

@@ -58,6 +58,7 @@ export class Terrain {
       colors[i * 3] = r; colors[i * 3 + 1] = g; colors[i * 3 + 2] = b;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    this.baseColors = colors.slice();
     const tex = makeDetailTexture(noise, eco.seabedKind ?? 'sand', eco.ripple ?? 1);
     tex.repeat.set(size / 3.5, size / 3.5);
     const mat = new THREE.MeshStandardMaterial({
@@ -95,5 +96,14 @@ export class Terrain {
   }
 
   heightAt(x, z) { return this.eco.heightAt(x, z); }
+  /** Repaint the seabed: fn(x, z, base[r,g,b]) -> [r,g,b] or null to keep the base colour (used by lab scenarios). */
+  recolor(fn) {
+    const pos = this.mesh.geometry.attributes.position, col = this.mesh.geometry.attributes.color, base = this.baseColors;
+    for (let i = 0; i < pos.count; i++) {
+      const c = fn(pos.getX(i), pos.getZ(i), [base[i * 3], base[i * 3 + 1], base[i * 3 + 2]]);
+      if (c) col.setXYZ(i, c[0], c[1], c[2]); else col.setXYZ(i, base[i * 3], base[i * 3 + 1], base[i * 3 + 2]);
+    }
+    col.needsUpdate = true;
+  }
   dispose() { this.mesh.geometry.dispose(); this.mesh.material.dispose(); this.mesh.parent?.remove(this.mesh); }
 }

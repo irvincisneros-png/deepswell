@@ -144,14 +144,26 @@ export function mangroveTree(seed) {
     const p1 = p0.clone().add(new THREE.Vector3(Math.cos(ang) * 1.2, 0.8 + rnd(), Math.sin(ang) * 1.2));
     parts.push(tube(p0, p1, 0.07, 0.04, 6, bark, bark));
     for (let k = 0; k < 4; k++) {
-      let g = new THREE.IcosahedronGeometry(0.6 + rnd() * 0.5, 2);
-      g.deleteAttribute('uv'); g.deleteAttribute('normal'); g = mergeVertices(g);
-      const p = g.attributes.position, v = new THREE.Vector3();
-      for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); v.multiplyScalar(1 + noise.n3(v.x * 3 + seed, v.y * 3, v.z * 3) * 0.3); p.setXYZ(i, v.x, v.y * 0.7, v.z); }
+      // Leaf cluster: many small leaves (glossy green on top, grey-green underneath like Avicennia).
+      const c = new THREE.Vector3(p1.x + (rnd() - 0.5) * 1.2, p1.y + (rnd() - 0.3) * 0.6, p1.z + (rnd() - 0.5) * 1.2);
+      const R = 0.6 + rnd() * 0.5;
+      const pos = [], col = [];
+      for (let l = 0; l < 110; l++) {
+        const d = new THREE.Vector3(rnd() - 0.5, (rnd() - 0.5) * 0.7, rnd() - 0.5).normalize().multiplyScalar(R * Math.cbrt(rnd()));
+        const ctr = c.clone().add(d);
+        const ax = new THREE.Vector3(rnd() - 0.5, rnd() * 0.4, rnd() - 0.5).normalize().multiplyScalar(0.09);
+        const sd = new THREE.Vector3().crossVectors(ax, new THREE.Vector3(rnd() - 0.5, 1, rnd() - 0.5)).normalize().multiplyScalar(0.035);
+        const q = [ctr.clone().sub(ax), ctr.clone().add(sd), ctr.clone().add(ax), ctr.clone().sub(sd)];
+        for (const i of [0, 1, 2, 0, 2, 3]) pos.push(q[i].x, q[i].y, q[i].z);
+        const shade = 0.75 + rnd() * 0.4, grey = rnd() < 0.3;
+        const lc = grey ? [0.45 * shade, 0.5 * shade, 0.42 * shade] : leaf.map(v => v * shade * (d.y > 0 ? 1.15 : 0.8));
+        for (let i = 0; i < 6; i++) col.push(...lc);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
       g.computeVertexNormals();
-      g.translate(p1.x + (rnd() - 0.5) * 1.2, p1.y + (rnd() - 0.3) * 0.6, p1.z + (rnd() - 0.5) * 1.2);
-      colorize(g, v => leaf.map(c => c * (0.8 + 0.4 * noise.n3(v.x * 4, v.y * 4, v.z * 4))));
-      parts.push(strip(g));
+      parts.push(g);
     }
   }
   return mergeGeometries(parts);

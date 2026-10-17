@@ -5,38 +5,41 @@
 const clamp01 = x => Math.min(1, Math.max(0, x));
 const sm = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
-/** Kelp forest trophic cascade: predators (blue groper, rock lobster) eat urchins; urchins graze kelp. */
-export function kelpModel(inp, years = 5) {
-  const s = { kelp: 0.62, urchin: 0.12, pred: 1, barren: 0.04 };
+/** Kelp forest trophic cascade: predators (blue groper, rock lobster) eat urchins; urchins eat kelp.
+ *  Barrens show hysteresis: they form once urchins pass ~0.3 but only recover when urchins fall below ~0.12. */
+export function kelpModel(inp, years = 5, start = null) {
+  const s = start ? { ...start } : { kelp: 0.62, urchin: 0.12, pred: 1, barren: 0.04 };
   const out = [{ ...s }];
   for (let m = 1; m <= years * 12; m++) {
     const dt = 1 / 12;
-    const predTarget = 1 - 0.85 * inp.fishing;
-    s.pred += (predTarget - s.pred) * dt * 0.8;
+    s.pred += ((1 - 0.85 * inp.fishing) - s.pred) * dt * 0.8;
     const recruit = 0.55 * (1 + 0.9 * inp.warming);       // a warmer East Australian Current helps urchin larvae
     const cull = inp.restore ? 0.9 : 0;
-    s.urchin += (recruit * s.urchin * (1 - s.urchin) - 0.9 * s.pred * s.urchin - cull * s.urchin) * dt;
+    // Urchins sheltering in barrens are harder for predators to control (feedback that keeps barrens stable).
+    const predation = 0.9 * s.pred * (1 - 0.5 * s.barren);
+    s.urchin += (recruit * s.urchin * (1 - s.urchin) - predation * s.urchin - cull * s.urchin) * dt;
     s.urchin = Math.min(1, Math.max(0.01, s.urchin));
-    // Once urchins pass a threshold they switch from eating drift kelp to grazing standing kelp (barrens).
-    const grazing = sm(0.2, 0.45, s.urchin) * 2.4 * s.urchin;
+    const form = s.urchin > 0.3 ? 1.6 * (s.urchin - 0.3) * (1 - s.barren) : 0;
+    const recover = s.urchin < 0.12 ? 0.35 * s.barren : 0;
+    s.barren = clamp01(s.barren + (form - recover - (inp.restore ? 0.12 * s.barren : 0)) * dt * 3);
     const heat = Math.max(0, inp.warming - 0.8) * 0.25;
-    const replant = inp.restore ? 0.12 : 0;
-    s.kelp += (0.5 * s.kelp * (1 - s.kelp - s.barren * 0.6) + replant * (1 - s.kelp) * 0.5 - grazing * s.kelp - heat * s.kelp) * dt;
-    s.kelp = Math.min(0.9, Math.max(0.01, s.kelp));
-    s.barren = clamp01((1 - s.kelp / 0.62) * sm(0.15, 0.4, s.urchin));
+    const replant = inp.restore ? 0.1 : 0;
+    s.kelp += (0.5 * s.kelp * Math.max(0, 0.92 - s.barren - s.kelp) + replant * (1 - s.barren) * 0.3 - heat * s.kelp - 1.2 * s.barren * s.kelp * 0.2) * dt;
+    s.kelp = Math.min(0.9, Math.max(0.01, Math.min(s.kelp, 0.92 - s.barren)));
     out.push({ ...s });
   }
   return out;
 }
 
 /** Seagrass light limitation: sediment and nutrient-fed epiphytes shade the meadow; dugongs and juvenile fish depend on it. */
-export function seagrassModel(inp, years = 5) {
-  const s = { seagrass: 0.6, epiphyte: 0.1, light: 0.8, dugong: 0.8, fish: 0.75 };
+export function seagrassModel(inp, years = 5, start = null) {
+  const s = start ? { ...start } : { seagrass: 0.6, epiphyte: 0.1, light: 0.8, dugong: 0.8, fish: 0.75 };
   const out = [{ ...s }];
   for (let m = 1; m <= years * 12; m++) {
     const dt = 1 / 12;
     const flood = inp.flood && m >= 2 && m <= 5 ? 1.4 : 0; // a big flood plume in the first wet season
-    s.epiphyte += ((0.1 + inp.nutrients * 0.8) - s.epiphyte) * dt * 2;
+    // A flood brings both mud (shading) and a pulse of nutrients that feeds epiphytes.
+    s.epiphyte += ((0.1 + inp.nutrients * 0.8 + (flood ? 0.4 : 0)) - s.epiphyte) * dt * 2;
     s.light = Math.exp(-(0.25 + inp.sediment * 1.4 + flood + s.epiphyte * 0.8));
     const growth = 0.9 * (s.light - 0.38);
     s.seagrass += growth * s.seagrass * (growth > 0 ? (1 - s.seagrass) : 1) * dt * 1.5;
@@ -49,8 +52,8 @@ export function seagrassModel(inp, years = 5) {
 }
 
 /** Plankton food chain: nutrients (upwelling/eddies) -> phytoplankton -> krill -> sardines -> predators. */
-export function planktonModel(inp, years = 5) {
-  const s = { phyto: 0.35, krill: 0.35, sardine: 0.45, pred: 0.5 };
+export function planktonModel(inp, years = 5, start = null) {
+  const s = start ? { ...start } : { phyto: 0.35, krill: 0.35, sardine: 0.45, pred: 0.5 };
   const out = [{ ...s }];
   for (let m = 1; m <= years * 12; m++) {
     const dt = 1 / 12;
@@ -68,8 +71,8 @@ export function planktonModel(inp, years = 5) {
 }
 
 /** Seamount trawling: deep-sea coral grows ~1 mm per year; orange roughy live 100+ years and mature late. */
-export function seamountModel(inp, years = 10) {
-  const s = { coral: 0.7, roughy: 0.8, rubble: 0.05 };
+export function seamountModel(inp, years = 10, start = null) {
+  const s = start ? { ...start } : { coral: 0.7, roughy: 0.8, rubble: 0.05 };
   const out = [{ ...s }];
   for (let m = 1; m <= years * 12; m++) {
     const dt = 1 / 12;

@@ -75,7 +75,7 @@ export class Diver {
     this.speed = this.vel.length();
 
     // Collisions: seabed, coral pick spheres, surface ceiling, soft site boundary.
-    const ground = world.groundAt(this.pos.x, this.pos.z) + (sub ? 1.6 : 0.45);
+    const ground = world.groundAt(this.pos.x, this.pos.z) + (sub ? 2.6 : 0.45);
     if (this.pos.y < ground) { this.pos.y = ground; if (this.vel.y < 0) this.vel.y = 0; }
     for (const c of world.nearbyColliders(this.pos, 3)) {
       const d = this.pos.distanceTo(c.center);

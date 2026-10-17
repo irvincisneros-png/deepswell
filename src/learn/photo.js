@@ -39,7 +39,7 @@ export function evaluatePhoto(camera, candidates, { groundAt, maxRange = 14, div
     if (a.grazing) behaviours.add('grazing');
     if (a.state === 'breathe') behaviours.add('breathing');
     if (a.closed) behaviours.add('closing');
-    if (a.b?.type === 'school' || a.b?.type === 'vortex') behaviours.add('schooling');
+    if (a.b?.type === 'school' || a.b?.type === 'vortex' || a.b?.type === 'baitball') behaviours.add('schooling');
     if (a.b?.type === 'host') behaviours.add('symbiosis');
     if (a.b?.camo) behaviours.add('camouflage');
     if (a.b?.glow) behaviours.add('bioluminescence');

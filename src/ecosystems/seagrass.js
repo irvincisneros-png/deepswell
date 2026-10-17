@@ -32,7 +32,7 @@ export function colorAt(x, z, h) {
 
 addGenerator('zostera', { fn: s => FL.seagrassClump(s, { blades: 46, height: 0.45, spread: 0.65 }), variants: 4, scale: [0.9, 1.3], radius: 0.6, sink: 0, rough: 0.7, sway: 1.6, cluster: 8, bleaches: false, as: 'zostera', maxH: -0.5, minH: -3.4, detailScale: 30 });
 addGenerator('halophila', { fn: FL.halophila, variants: 3, scale: [1, 2], radius: 0.3, sink: 0, rough: 0.7, cluster: 12, bleaches: false, as: 'halophila', maxH: -1.6, minH: -5.5 });
-addGenerator('mangrove', { fn: FL.mangroveTree, variants: 4, scale: [0.9, 1.4], radius: 1.2, sink: 0.2, rough: 0.9, bleaches: false, as: 'greymangrove', maxH: 0.5, minH: -0.9, cluster: 4 });
+addGenerator('mangrove', { fn: FL.mangroveTree, variants: 4, scale: [0.9, 1.4], radius: 1.2, sink: 0.2, rough: 0.8, bleaches: false, upright: true, as: 'greymangrove', maxH: 0.5, minH: -0.9, cluster: 4 });
 addGenerator('pneumatophores', { fn: FL.pneumatophores, variants: 3, scale: [1, 1.8], radius: 0.6, sink: 0.02, rough: 0.9, bleaches: false, as: 'greymangrove', maxH: 0.4, minH: -1.2, cluster: 6 });
 
 const { C, mix, sm, withEye, bars, spots, counter, hash } = P;
@@ -99,6 +99,7 @@ export const seagrass = {
   heightAt, colorAt, reefiness,
   bounds: { xMin: -75, xMax: 75, zMin: -80, zMax: 60 },
   water: {
+    shafts: 0,
     absorb: [0.4, 0.15, 0.24], fog: 0x527a64, fogDeep: 0x34523f, fogDensity: 0.1,
     shallow: 0x8cb89a, mid: 0x5e9a80, deep: 0x33604c, fogDepthScale: 6,
     skyTop: 0x2a6fc4, skyHorizon: 0xcde4ee, sun: [0.3, 0.86, -0.3], sunIntensity: 2.6,
@@ -106,6 +107,7 @@ export const seagrass = {
   },
   surf: null,
   diveSpawn: { x: 0, z: -8, yaw: 0 },
+  menuCam: { look: [0, -2.2, -4], r: 9, y: -1.1 },
   boat: { x: -4, z: -14 },
   diveIntro: 'You\'re in shallow, murky estuary water. Look down and swim (W) — the seagrass meadow is just below. Mangroves line the shore ahead.',
   island: null,
@@ -152,7 +154,11 @@ export const seagrass = {
       game.world.reef.setKindFraction('zostera', Math.min(1, s.seagrass / 0.6));
       game.world.reef.setKindFraction('halophila', Math.min(1, s.seagrass / 0.6));
       game.env.fogDensityBelow = 0.1 * (1 + Math.max(0, 0.75 - s.light) * 2.5);
-      game.world.life.setAbundance(id => (id === 'dugong' ? s.dugong : ['juvenilesnapper', 'whiting', 'pipefish', 'seahorse'].includes(id) ? s.fish : 1));
+      // Dugongs and green turtles move elsewhere when their food runs out; nursery fish decline with the meadow.
+      const food = Math.min(1, s.seagrass / 0.45);
+      game.world.life.setAbundance(id => (id === 'dugong' || id === 'greenturtle' ? Math.min(1, 0.25 + food * 0.8) : ['juvenilesnapper', 'whiting', 'pipefish', 'seahorse'].includes(id) ? s.fish : 1));
+      // Epiphytes: algae fouling the blades turns the meadow brown
+      for (const { im } of game.world.reef.byKind.zostera ?? []) im.material.color.setRGB(1, 1, 1).lerp(new THREE.Color(0.75, 0.6, 0.35), Math.min(1, s.epiphyte * 1.1));
     },
   },
 };

@@ -151,7 +151,11 @@ export class Life {
       } else {
         home = this.randomReef(-16, -3); home.y += 1.5;
       }
+      // Never spawn (or anchor) an animal inside the seabed.
+      const clear = (b.alt?.[0] ?? 1) + 0.5;
+      home.y = Math.max(home.y, this.terrain.heightAt(home.x, home.z) + clear);
       const pos = home.clone().add(new THREE.Vector3((rnd() - 0.5) * 3, (rnd() - 0.2) * 1, (rnd() - 0.5) * 3));
+      pos.y = Math.max(pos.y, this.terrain.heightAt(pos.x, pos.z) + clear);
       if (b.type === 'patrol') { const c = b.center ?? [0, -45]; pos.set(c[0] + Math.cos(i * 2) * 30, b.y ?? -12, c[1] + Math.sin(i * 2) * 25); }
       if (b.type === 'migrate') pos.set(-120 + i * 25, b.y ?? -8, (b.lane ?? 0) + i * 6);
       if (b.type === 'bird') pos.set(home.x, 4, home.z);
@@ -285,7 +289,7 @@ export class Life {
     for (const a of this.agents) {
       a.cleaning = false; a.grazing = false;
       if (a.state !== 'pose') a.roll = 0;
-      a.hunting = false;
+      a.hunting = false; a.escaping = false;
       if (a.static && !a.rig) {
         if (a.b.type === 'crawl') this.crawl(a, dt);
         else if (a.b.type === 'drift') this.drift(a, dt);
@@ -294,6 +298,7 @@ export class Life {
       }
       if (a.rig) { a.b.type === 'turtle' ? this.updateTurtle(a, dt, dpos) : this.updateClam(a, dt, dpos, dvel, diverActive); continue; }
       const b = a.b;
+      if (a.visible === false) { this.writeMatrix(a); continue; } // removed by a lab scenario: takes no part in the ecosystem
       let desired = new THREE.Vector3();
       const sp = b.speed;
       // Threat from the diver: faster approach = bigger reaction.
@@ -401,7 +406,7 @@ export class Life {
       const ground = this.terrain.heightAt(a.pos.x, a.pos.z);
       const minAlt = b.type === 'rest' ? 0.04 : b.type === 'host' ? 0.1 : (b.alt?.[0] ?? 0.8) * 0.6;
       if (a.pos.y < ground + minAlt) desired.y += (ground + minAlt - a.pos.y) * 2;
-      const canSurface = b.type === 'bird' || ((b.type === 'breather' || b.type === 'migrate') && (a.state === 'ascend' || a.state === 'breathe'));
+      const canSurface = b.type === 'bird' || ((b.type === 'breather' || b.type === 'migrate' || b.breathEvery) && (a.state === 'ascend' || a.state === 'breathe'));
       if (!canSurface && a.pos.y > -0.8) desired.y -= (a.pos.y + 0.8) * 2;
       const bd = this.eco.bounds;
       if (a.pos.x < bd.xMin - 15) desired.x += 0.5; if (a.pos.x > bd.xMax + 15) desired.x -= 0.5;
@@ -467,8 +472,9 @@ export class Life {
     const tangent = new THREE.Vector3(-r.z, (a.index % 3 - 1) * 0.2, r.x).normalize().multiplyScalar(a.b.speed);
     const desired = tangent.add(r.clone().multiplyScalar((R - dist) / dist * 1.2));
     for (const h of this.hunters ?? []) {
+      if (h.visible === false) continue;
       const d = a.pos.distanceTo(h.pos);
-      if (d < 2.5) { desired.add(_v.subVectors(a.pos, h.pos).normalize().multiplyScalar((2.5 - d) * 3)); if (h.state === 'charge') a.hunting = true; }
+      if (d < 2.5) { desired.add(_v.subVectors(a.pos, h.pos).normalize().multiplyScalar((2.5 - d) * 3)); if (h.state === 'charge') a.escaping = true; }
     }
     return desired;
   }
@@ -476,6 +482,16 @@ export class Life {
   hunterSteer(a, dt) {
     (this.hunters ??= new Set()).add(a);
     const c = this.ballCentre ?? a.home;
+    if (a.b.breathEvery) {
+      // Dolphins hunt between breaths: every so often break off, surface, breathe, return.
+      a.bt = (a.bt ?? a.b.breathEvery * (0.3 + this.rnd())) - dt;
+      if (a.bt <= 0 && a.state !== 'ascend' && a.state !== 'breathe') { a.state = 'ascend'; a.target.set(a.pos.x + a.dir.x * 5, -0.25, a.pos.z + a.dir.z * 5); }
+      if (a.state === 'ascend' || a.state === 'breathe') {
+        const d = this.breatherSteer(a, dt, null);
+        if (a.state === 'cruise') { a.state = 'circle'; a.bt = a.b.breathEvery * (0.7 + this.rnd() * 0.6); a.timer = 3; }
+        return d;
+      }
+    }
     a.timer -= dt;
     if (a.state === 'idle' || !a.state) { a.state = 'circle'; a.timer = 3 + this.rnd() * 6; }
     if (a.state === 'circle') {
@@ -562,7 +578,7 @@ export class Life {
     const sep = new THREE.Vector3(), ali = new THREE.Vector3(), coh = new THREE.Vector3();
     let n = 0;
     for (const o of this.agents) {
-      if (o === a || o.group !== a.group || o.id !== a.id) continue;
+      if (o === a || o.group !== a.group || o.id !== a.id || o.visible === false) continue;
       const d = a.pos.distanceTo(o.pos);
       if (d > 2.2) continue;
       n++;
@@ -698,11 +714,16 @@ export class Life {
 
   /** Scale visible fish abundance (0..1.5) per feeding group — driven by the health lab. */
   setAbundance(fn) {
+    const touched = new Set();
     for (const a of this.agents) {
-      if (!a.kind || a.static) continue;
+      if (a.cloud) continue;
       const keep = fn(a.id);
-      a.visible = ((a.index * 0.6180339) % 1) < keep;
+      const idx = a.index ?? this.agents.indexOf(a);
+      a.visible = ((idx * 0.6180339) % 1) < keep;
+      if (a.rig) a.rig.group.visible = a.visible;
+      else if (a.static && a.kind) { this.writeMatrix(a); touched.add(a.kind); }
     }
+    for (const k of touched) k.mesh.instanceMatrix.needsUpdate = true;
   }
   setCount(id, frac) {
     for (const a of this.agents) if (a.id === id && a.kind) a.visible = ((a.index * 0.6180339) % 1) < frac;

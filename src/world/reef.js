@@ -90,13 +90,14 @@ export class Reef {
           tint.setRGB(v * (hueShift < 0.33 ? 1.1 : 0.92), v * (hueShift > 0.66 ? 1.08 : 0.95), v * (hueShift > 0.33 && hueShift < 0.66 ? 1.12 : 0.9));
           im.setColorAt(i, tint);
           bleach[i] = 0.15 + rnd() * 0.8; // individual colony thresholds -> patchy bleaching
-          if (kind !== 'rock') this.picks.push({ x: p.x, y: p.y + gen.radius * p.s * 0.5, z: p.z, r: gen.radius * p.s * 0.8, id: gen.as ?? kind, kind: 'coral' });
+          p.pick = kind !== 'rock' ? { x: p.x, y: p.y + gen.radius * p.s * 0.5, z: p.z, r: gen.radius * p.s * 0.8, id: gen.as ?? kind, kind: 'coral' } : null;
+          if (p.pick) this.picks.push(p.pick);
         });
         geo.setAttribute('aBleach', new THREE.InstancedBufferAttribute(bleach, 1));
         im.instanceMatrix.needsUpdate = true;
         im.computeBoundingSphere();
         const mats = []; for (let i = 0; i < list.length; i++) { const mm = new THREE.Matrix4(); im.getMatrixAt(i, mm); mats.push(mm); }
-        (this.byKind[gen.as ?? kind] ??= []).push({ im, mats });
+        (this.byKind[gen.as ?? kind] ??= []).push({ im, mats, picks: list.map(p => p.pick) });
         this.group.add(im);
         this.meshes.push(im);
       });
@@ -105,8 +106,12 @@ export class Reef {
   /** Show only a fraction (0..1) of a habitat-forming kind, e.g. kelp lost to urchin barrens. */
   setKindFraction(kind, f) {
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (const { im, mats } of this.byKind[kind] ?? []) {
-      mats.forEach((m, i) => im.setMatrixAt(i, ((i * 0.6180339) % 1) < f ? m : zero));
+    for (const { im, mats, picks } of this.byKind[kind] ?? []) {
+      mats.forEach((m, i) => {
+        const show = ((i * 0.6180339) % 1) < f;
+        im.setMatrixAt(i, show ? m : zero);
+        if (picks[i]) picks[i].hidden = !show; // removed habitat can't be photographed, clicked or bumped into
+      });
       im.instanceMatrix.needsUpdate = true;
     }
   }

@@ -55,7 +55,7 @@ export class World {
   nearbyColliders(p, r = 3) {
     const out = [];
     const x0 = Math.floor((p.x - r) / 6), x1 = Math.floor((p.x + r) / 6), z0 = Math.floor((p.z - r) / 6), z1 = Math.floor((p.z + r) / 6);
-    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const c = this.grid.get(`${x},${z}`); if (c) out.push(...c); }
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const c = this.grid.get(`${x},${z}`); if (c) for (const e of c) if (!e.pick.hidden) out.push(e); }
     return out;
   }
   /** Ray pick against creatures and corals. Returns { id, agent?, dist } or null. */
@@ -80,9 +80,9 @@ export class World {
       const px = origin.x + dir.x * s, pz = origin.z + dir.z * s;
       const k = `${Math.floor(px / 6)},${Math.floor(pz / 6)}`;
       if (seen.has(k)) continue; seen.add(k);
-      for (const c of this.grid.get(k) ?? []) test(c.center.x, c.center.y, c.center.z, c.r * 1.1, { id: c.pick.id, coral: c.pick });
+      for (const c of this.grid.get(k) ?? []) if (!c.pick.hidden) test(c.center.x, c.center.y, c.center.z, c.r * 1.1, { id: c.pick.id, coral: c.pick });
     }
-    for (const p of this.reef.picks) if (p.r < 0.35 && Math.hypot(p.x - origin.x, p.z - origin.z) < maxDist) test(p.x, p.y, p.z, p.r, { id: p.id, coral: p });
+    for (const p of this.reef.picks) if (!p.hidden && p.r < 0.35 && Math.hypot(p.x - origin.x, p.z - origin.z) < maxDist) test(p.x, p.y, p.z, p.r, { id: p.id, coral: p });
     // Terrain occlusion
     if (best) for (let s = 0.5; s < best.dist; s += 0.5) { const y = origin.y + dir.y * s; if (y < this.groundAt(origin.x + dir.x * s, origin.z + dir.z * s) - 0.1) return null; }
     return best;
@@ -91,7 +91,7 @@ export class World {
   photoCandidates(center, range = 16) {
     const out = [];
     for (const a of this.life.agents) if (a.visible !== false && a.pos.distanceTo(center) < range) out.push({ pos: a.pos, r: Math.max(0.12, a.radius * (a.scale ?? 1)), id: a.id, agent: a });
-    for (const p of this.reef.picks) if (Math.hypot(p.x - center.x, p.z - center.z) < range) out.push({ pos: new THREE.Vector3(p.x, p.y, p.z), r: p.r * 0.8, id: p.id });
+    for (const p of this.reef.picks) if (!p.hidden && Math.hypot(p.x - center.x, p.z - center.z) < range) out.push({ pos: new THREE.Vector3(p.x, p.y, p.z), r: p.r * 0.8, id: p.id });
     return out;
   }
   dispose() {

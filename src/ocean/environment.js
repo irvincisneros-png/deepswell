@@ -35,6 +35,7 @@ export class Environment {
     globalUniforms.uCaustics.value = w.caustics ?? 1;
     this.hemi.color.set(w.hemiSky ?? 0xbfe6ff); this.hemi.groundColor.set(w.hemiGround ?? 0x3a6a70);
     this.envBelow = w.envBelow ?? 0.3;
+    this.shaftsOn = w.shafts ?? 1;
     this.sun.color.set(w.sunColor ?? 0xfff2dd);
     this.sunBase = this.sun.intensity = w.sunIntensity ?? 2.6;
     this.hemiBase = this.hemi.intensity = w.ambient ?? 1.1;
@@ -143,8 +144,8 @@ export class Environment {
       this.scene.background = null;
     }
     if (this.shafts) {
-      this.shafts.visible = !!u;
-      this.shaftMat.uniforms.uOpacity.value = u ? Math.max(0, 1 - depth / 30) : 0;
+      this.shafts.visible = !!u && this.shaftsOn > 0;
+      this.shaftMat.uniforms.uOpacity.value = u ? Math.max(0, 1 - depth / 30) * this.shaftsOn : 0;
       this.shaftMat.uniforms.uCam.value.copy(camera.position);
       const sd = globalUniforms.uSunDir.value;
       const tilt = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(sd.x * 0.35, 1, sd.z * 0.35).normalize());

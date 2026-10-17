@@ -54,7 +54,7 @@ for (const [id, l] of Object.entries(looks)) registerLook(id, l);
 
 const B = {
   sardine: { type: 'baitball', speed: 0.9, radius: 2.4, at: BALL, y: -9, flee: 1 },
-  commondolphin: { type: 'hunter', speed: 2.4, at: BALL, spread: 20, y: -6 },
+  commondolphin: { type: 'hunter', speed: 2.4, at: BALL, spread: 20, y: -6, breathEvery: 25, breathTime: 2, blow: false },
   yellowfin: { type: 'hunter', speed: 2.8, at: BALL, spread: 20, y: -9 },
   bronzewhaler: { type: 'hunter', speed: 1.4, at: BALL, spread: 30, y: -12 },
   bottlenose: { type: 'breather', radius: 45, speed: 1.6, breathEvery: 18, breathTime: 2, y: -4, flee: 3, at: [30, 10] },
@@ -82,6 +82,7 @@ export const pelagic = {
   heightAt, colorAt, reefiness,
   bounds: { xMin: -90, xMax: 90, zMin: -90, zMax: 90 },
   water: {
+    shafts: 0.6,
     absorb: [0.26, 0.05, 0.022], fog: 0x0c4f8e, fogDeep: 0x041d40, fogDensity: 0.024, fogDepthScale: 40,
     shallow: 0x0e5e9e, mid: 0x0b4f8a, deep: 0x05274f, caustics: 0.6,
     skyTop: 0x1e66c8, skyHorizon: 0xb8daf2, sun: [0.4, 0.8, -0.4], sunIntensity: 2.7,
@@ -89,6 +90,7 @@ export const pelagic = {
   },
   surf: null,
   diveSpawn: { x: 6, z: -6, yaw: Math.PI * 0.9 },
+  menuCam: { look: [0, -9, -26], r: 13, y: -7 },
   boat: { x: 0, z: 0 },
   diveIntro: 'Blue water in every direction — the bottom is over 100 m below. Stay close to the boat and look for birds diving: that means a bait ball.',
   boundsMsg: 'You\'re drifting too far from the boat — your buddy signals you back.',
@@ -102,7 +104,7 @@ export const pelagic = {
   lab: {
     title: 'Plankton food-chain lab',
     intro: 'Everything here runs on phytoplankton. Change how much nutrient-rich deep water mixes up to the surface, how warm the surface layer is, and how many sardines are fished — then watch the whole food chain respond.',
-    note: 'Simplified teaching model of a food chain. Real ocean productivity also depends on light, seasons and currents.',
+    note: 'Simplified teaching model. Each line is a relative index (0–1) of that group\'s own maximum — the lines can\'t be compared as amounts of biomass or energy.',
     defaults: { upwelling: 0.3, warming: 0, fishing: 0.2 },
     sliders: [
       { id: 'upwelling', label: 'Upwelling / eddy mixing', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%`, help: 'Brings nutrient-rich deep water up into the sunlit layer' },
@@ -110,9 +112,9 @@ export const pelagic = {
       { id: 'fishing', label: 'Sardine fishing', min: 0, max: 1, step: 0.05, fmt: v => `${Math.round(v * 100)}%` },
     ],
     lines: [
-      { key: 'phyto', label: 'Phytoplankton', color: '#7ad06a' },
-      { key: 'krill', label: 'Krill', color: '#ff9a8a' },
-      { key: 'sardine', label: 'Sardines', color: '#9ac8f0' },
+      { key: 'phyto', label: 'Phytoplankton (index)', color: '#7ad06a' },
+      { key: 'krill', label: 'Krill (index)', color: '#ff9a8a' },
+      { key: 'sardine', label: 'Sardines (index)', color: '#9ac8f0' },
       { key: 'pred', label: 'Predators (index)', color: '#e0c060', dashed: true },
     ],
     readouts: [{ key: 'phyto', label: 'phytoplankton', fmt: v => `${Math.round(v * 100)}%` }, { key: 'sardine', label: 'sardines', fmt: v => `${Math.round(v * 100)}%` }],
