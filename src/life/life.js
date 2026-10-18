@@ -209,7 +209,9 @@ export class Life {
   spawnStatic(id, n, b) {
     const gen = STATIC_GEN[b.gen ?? id];
     if (!gen) return;
-    const geo = gen(3 + n, b.opts ?? {});
+    // Cosy look: a hand-shaped model if the site's set has one for this creature.
+    const model = this.art?.statics?.[id] && this.art.models.get(this.art.statics[id]);
+    const geo = model ? model.clone() : gen(3 + n, b.opts ?? {});
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: b.rough ?? 0.7, side: b.doubleSide ? THREE.DoubleSide : THREE.FrontSide });
     if (b.transparent) { mat.transparent = true; mat.opacity = b.transparent; mat.depthWrite = false; }
     if (b.emissive) { mat.emissive = new THREE.Color(...b.emissive); mat.emissiveIntensity = b.emissiveIntensity ?? 1; }

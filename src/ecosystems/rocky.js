@@ -234,6 +234,14 @@ export const rocky = {
       bluelinedoctopus: (rnd, i) => { const [px, pz, r] = POOLS[(i * 4 + 1) % POOLS.length]; return { x: px + (rnd() - 0.5) * r * 0.6, z: pz + (rnd() - 0.5) * r * 0.6 }; },
     },
   },
+  cosyModels: {
+    url: 'assets/models/rocky_cosy.glb',
+    coral: {
+      kelp: ['kelp_0', 'kelp_1', 'kelp_2'], crayweed: ['crayweed_0', 'crayweed_1'], fingersponge: ['fingersponge_0', 'fingersponge_1'],
+      vasesponge: ['vasesponge_0', 'vasesponge_1'], boulder: ['boulder_0', 'boulder_1', 'boulder_2'], rock: ['boulder_0', 'boulder_1', 'boulder_2'],
+    },
+    statics: { urchin: 'urchin_0', abalone: 'abalone_0', cunjevoi: 'cunjevoi_0' },
+  },
   speciesInfo, missions,
   placers: {
     // Urchins are scattered across the whole reef; outside the starting barren they are hidden until a lab run spreads it.

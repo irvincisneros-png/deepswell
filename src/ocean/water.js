@@ -148,7 +148,8 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
       #include <tonemapping_fragment>
       #include <colorspace_fragment>
     }`;
-  return new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide, transparent: true });
+  // Stylised look: water doesn't write depth, so the ink-outline pass outlines things under the surface but not waves.
+  return new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide, transparent: true, depthWrite: globalUniforms.uStyle.value < 0.5 });
 }
 
 export class Ocean {

@@ -83,11 +83,12 @@ export const gbr = {
   cosyModels: {
     url: 'assets/models/gbr_cosy.glb',
     coral: {
-      staghorn: ['staghorn_0', 'staghorn_1', 'staghorn_2'], bushcoral: ['staghorn_2', 'staghorn_0', 'staghorn_1'],
-      braincoral: ['brain_0'], porites: ['brain_0'], tablecoral: ['table_0'], platecoral: ['table_0'],
-      softtree: ['softcoral_0', 'softcoral_1'], leathercoral: ['softcoral_1', 'softcoral_0'], rock: ['rock_0', 'rock_1', 'rock_2'],
+      staghorn: ['staghorn_0', 'staghorn_1', 'staghorn_2'], bushcoral: ['bush_0', 'bush_1'],
+      braincoral: ['brain_0', 'brain_1'], porites: ['porites_0', 'porites_1'], tablecoral: ['table_0', 'table_1'], platecoral: ['plate_0', 'plate_1'],
+      leathercoral: ['leather_0', 'leather_1'], softtree: ['softcoral_0', 'softcoral_1'], sponge: ['barrel_0'], seafan: ['seafan_0'],
+      rock: ['rock_0', 'rock_1', 'rock_2'],
     },
-    fish: { bluetang: 'fish_bluetang', clownfish: 'fish_clownfish' },
+    statics: { anemone: 'anemone_0', cots: 'cots_0', seacucumber: 'seacucumber_0' },
   },
   speciesInfo,
   missions,

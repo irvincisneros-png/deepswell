@@ -77,7 +77,8 @@ export class Reef {
       const geos = Array.from({ length: gen.variants }, (_, i) => build(i));
       // The same colonies with fewer segments, drawn for distant tiles (identical shape: generators seed their own randomness).
       LOD.k = 0.4;
-      const geosLo = Array.from({ length: gen.variants }, (_, i) => build(i));
+      const buildLo = names?.length ? i => { const g = art.models.get(names[i % names.length] + '_lo'); return g ? bakeAO(g.clone(), 0.5) : build(i); } : build;
+      const geosLo = Array.from({ length: gen.variants }, (_, i) => buildLo(i));
       LOD.k = 1;
       const placements = geos.map(() => []);
       let tries = 0;

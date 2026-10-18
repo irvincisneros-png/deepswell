@@ -1,6 +1,10 @@
 // Procedural fish / shark / ray geometry with painted canvas skins.
 // Model space: head toward +x, dorsal +y, origin at body centre, units metres.
 import * as THREE from 'three';
+import { globalUniforms } from '../ocean/shaders.js';
+
+/** Cosy art style: rounder bodies, thick soft fins, big glossy eyes (species proportions and markings unchanged). */
+const cosy = () => globalUniforms.uStyle.value > 0.5;
 
 const TAU = Math.PI * 2;
 const hex = h => new THREE.Color(h);
@@ -79,8 +83,9 @@ export function buildFish(look) {
   const L = look.length;
   const tailFrac = look.tailFrac ?? 0.2;
   const bodyLen = L * (1 - tailFrac);
-  const depth = look.depth * L, width = look.width * L;
-  const RINGS = 26, SEG = 18;
+  const C = cosy();
+  const depth = look.depth * L, width = look.width * L * (C ? 1.18 : 1);
+  const RINGS = C ? 32 : 26, SEG = C ? 24 : 18;
   const pos = [], uv = [], idx = [], fin = []; // fin: (k along fin base, 0 base..1 edge); body (0,-1); eye (0,-2)
   const x0 = -L / 2 + tailFrac * L;
   const superE = look.boxy ?? 2; // cross-section superellipse exponent
@@ -109,6 +114,25 @@ export function buildFish(look) {
   }
   // Fins: thin double-sided sheets. Each is a strip from base curve to edge curve.
   const addFin = (base, edge, n, vBand, uOf) => {
+    const vertical = C && Math.abs(base(0.5)[2]) < 1e-6 && Math.abs(edge(0.5)[2]) < 1e-6;
+    if (vertical) {
+      // Two layers (z = +t and -t), thickest at the base and tapering to a rounded edge.
+      const T = Math.max(0.004, L * 0.022), M = 3, start = pos.length / 3;
+      for (const sd of [1, -1]) for (let i = 0; i <= n; i++) {
+        const k = i / n, b = base(k), e = edge(k), endK = Math.sin(Math.PI * Math.min(1, 0.06 + k * 0.94));
+        for (let j = 0; j <= M; j++) {
+          const f = j / M, th = T * Math.sqrt(Math.max(0, 1 - f * f)) * (0.35 + 0.65 * endK);
+          pos.push(b[0] + (e[0] - b[0]) * f, b[1] + (e[1] - b[1]) * f, sd * th);
+          uv.push(uOf(k), 1 - (0.75 + (vBand + 0.02 + 0.21 * f) * 0.25)); fin.push(k, f);
+        }
+      }
+      const row = M + 1, layer = (n + 1) * row;
+      for (let s = 0; s < 2; s++) for (let i = 0; i < n; i++) for (let j = 0; j < M; j++) {
+        const a = start + s * layer + i * row + j, b2 = a + row;
+        if (s === 0) idx.push(a, a + 1, b2, a + 1, b2 + 1, b2); else idx.push(a, b2, a + 1, a + 1, b2, b2 + 1);
+      }
+      return;
+    }
     const start = pos.length / 3;
     for (let i = 0; i <= n; i++) {
       const k = i / n;
@@ -189,7 +213,7 @@ export function buildFish(look) {
   if (eye && !look.noEyeDome) {
     const t = eye.u, prof = bodyProfile(t, look), ex = 2 / superE;
     const hh = depth * 0.5 * prof, ww = width * 0.5 * prof;
-    const re = eye.r * bodyLen * 0.85, R = 6, S = 12;
+    const re = eye.r * bodyLen * (C ? 1.1 : 0.85), R = 6, S = 12;
     for (const side of [1, -1]) {
       const phi0 = side > 0 ? Math.acos(Math.max(-1, Math.min(1, eye.s))) : TAU - Math.acos(Math.max(-1, Math.min(1, eye.s)));
       const c = Math.cos(phi0), sn = Math.sin(phi0);
@@ -204,7 +228,7 @@ export function buildFish(look) {
           const th = (j / S) * TAU;
           const p = centre.clone().addScaledVector(nrm, Math.cos(a) * re).addScaledVector(tu, Math.sin(a) * re * Math.cos(th)).addScaledVector(tv, Math.sin(a) * re * Math.sin(th));
           pos.push(p.x, p.y, p.z);
-          const k = rho * eye.r * 1.15, ss = Math.max(-1, Math.min(1, eye.s + (k * Math.sin(th) * side) / 0.55));
+          const k = rho * eye.r * (C ? 0.7 : 1.15), ss = Math.max(-1, Math.min(1, eye.s + (k * Math.sin(th) * side) / 0.55));
           const ph = side > 0 ? Math.acos(ss) : TAU - Math.acos(ss);
           uv.push(eye.u + k * Math.cos(th), 1 - (ph / TAU) * 0.75); fin.push(0, -2);
         }
@@ -212,6 +236,20 @@ export function buildFish(look) {
       for (let i = 0; i < R; i++) for (let j = 0; j < S; j++) {
         const a = start + i * (S + 1) + j, b = a + S + 1;
         if (side > 0) idx.push(a, b, a + 1, a + 1, b, b + 1); else idx.push(a, a + 1, b, a + 1, b + 1, b);
+      }
+      if (C) {
+        // Highlight dot: a tiny white cap up and forward on the eye (aFin.y = -3 tells the shader to make it white).
+        const hc = centre.clone().addScaledVector(nrm, re * 1.02).addScaledVector(tu, re * 0.35).addScaledVector(tv, re * 0.3 * side * -1 + re * 0.0).add(new THREE.Vector3(0, re * 0.3, 0));
+        const hr = re * 0.28, h0 = pos.length / 3;
+        for (let i = 0; i <= 3; i++) for (let j = 0; j <= 8; j++) {
+          const a = (i / 3) * Math.PI * 0.5, th = (j / 8) * TAU;
+          const p = hc.clone().addScaledVector(nrm, Math.cos(a) * hr * 0.4).addScaledVector(tu, Math.sin(a) * hr * Math.cos(th)).addScaledVector(tv, Math.sin(a) * hr * Math.sin(th));
+          pos.push(p.x, p.y, p.z); uv.push(eye.u, 0.5); fin.push(0, -3);
+        }
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 8; j++) {
+          const a = h0 + i * 9 + j, b = a + 9;
+          if (side > 0) idx.push(a, b, a + 1, a + 1, b, b + 1); else idx.push(a, a + 1, b, a + 1, b + 1, b);
+        }
       }
     }
   }

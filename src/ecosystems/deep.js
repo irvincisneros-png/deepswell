@@ -129,6 +129,10 @@ export const deep = {
   boundsMsg: 'Sonar warning: leaving the survey area. Turn back toward the seamount.',
   growMsg: 'Growing a thousand-year-old coral reef…',
   island: null,
+  cosyModels: {
+    url: 'assets/models/deep_cosy.glb',
+    coral: { deepcoral: ['deepcoral_0', 'deepcoral_1', 'deepcoral_2'], bamboo: ['bamboo_0', 'bamboo_1'], glasssponge: ['glasssponge_0'], deeprock: ['deeprock_0', 'deeprock_1'] },
+  },
   speciesInfo, missions,
   coral: [
     ['deepcoral', 1100, (x, z, h) => (inScar(x, z) ? 0 : 1) * (h > -820 ? 1 : 0.1)],

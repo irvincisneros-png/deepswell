@@ -112,6 +112,10 @@ export const seagrass = {
   boat: { x: -4, z: -14 },
   diveIntro: 'You\'re in shallow, murky estuary water. Look down and swim (W) — the seagrass meadow is just below. Mangroves line the shore ahead.',
   island: null,
+  cosyModels: {
+    url: 'assets/models/seagrass_cosy.glb',
+    coral: { zostera: ['zostera_0', 'zostera_1', 'zostera_2'], halophila: ['halophila_0', 'halophila_1'], mangrove: ['mangrove_0', 'mangrove_1', 'mangrove_2'], pneumatophores: ['pneumato_0', 'pneumato_1'] },
+  },
   speciesInfo, missions,
   placers: {
     mangrove: (rnd, t) => { for (let i = 0; i < 200; i++) { const x = (rnd() - 0.5) * 140, z = 38 + rnd() * 22; const h = t.heightAt(x, z); if (h < 0.2 && h > -0.9) return new THREE.Vector3(x, h, z); } return new THREE.Vector3(0, -0.5, 45); },
