@@ -215,12 +215,12 @@ export function patchUnderwater(material, opts = {}) {
         // ambient is a sky/ground colour gradient, and a rim light outlines shapes against the background.
         float lumA = max(dot(diffuseColor.rgb, vec3(0.3333)), 0.02);
         float direct = dot(reflectedLight.directDiffuse, vec3(0.3333)) / lumA;
-        float lit = smoothstep(0.15, 0.19, direct);                       // crisp terminator
-        float hi = smoothstep(0.5, 0.54, direct) * 0.18;                  // small bright band where light is strongest
+        float lit = smoothstep(0.06, 0.32, direct);                       // soft terminator (cosy diorama look)
+        float hi = smoothstep(0.45, 0.75, direct) * 0.12;                 // gentle lift where light is strongest
         vec3 nS = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
         vec3 amb = mix(uStyleGround, uStyleSky, nS.y * 0.5 + 0.5);
         float rim = pow(1.0 - abs(dot(nS, normalize(cameraPosition - vWPos))), 3.0);
-        rim = smoothstep(0.45, 0.6, rim) * (1.0 - smoothstep(0.55, 0.9, nS.y)); // edge band on the sides of things, not on flat ground
+        rim = smoothstep(0.3, 0.9, rim) * 0.6 * (1.0 - smoothstep(0.55, 0.9, nS.y)); // soft rim on the sides of things, not on flat ground
         outgoingLight = diffuseColor.rgb * (amb + uStyleSun * (lit + hi)) + uStyleRim * rim * (0.3 + 0.7 * lit) + totalEmissiveRadiance;
       }
       {
@@ -237,7 +237,7 @@ export function patchUnderwater(material, opts = {}) {
           float c = causticPattern(cp, uTime * 0.55) * 0.75 + causticPattern(cp * 1.7 + 3.1, uTime * 0.7) * 0.35;
           // Caustics are focused sunlight: scale the direct sun term, so they fall off with the surface angle and vanish in shadow.
           outgoingLight += reflectedLight.directDiffuse * min(c, 1.4) * uCaustics * exp(-depth * 0.09) * 1.5;
-          outgoingLight *= exp(-uAbsorb * depth);
+          outgoingLight *= exp(-uAbsorb * depth * (1.0 - 0.7 * uStyle)); // stylised: keep pastel colours readable
           if (uUnderwater < 0.5) {
             // Seen from above the surface: light travels back up through the water to the eye.
             vec3 Vw = normalize(cameraPosition - vWPos);
@@ -254,7 +254,7 @@ export function patchUnderwater(material, opts = {}) {
       #if defined(USE_FOG) && defined(FOG_EXP2)
         if (uUnderwater > 0.5) {
           vec3 Vf = vWPos - cameraPosition; float fd = length(Vf);
-          gl_FragColor.rgb *= exp(-uAbsorb * fd * 0.25);
+          gl_FragColor.rgb *= exp(-uAbsorb * fd * 0.25 * (1.0 - 0.7 * uStyle));
           float ff = 1.0 - exp(-fogDensity * fogDensity * fd * fd);
           gl_FragColor.rgb = mix(gl_FragColor.rgb, uwFogColor(Vf / max(fd, 1e-3), fogColor, uSunDir), ff);
         } else {

@@ -138,7 +138,7 @@ export class Environment {
     if (globalUniforms.uStyle.value > 0.5) {
       const G = globalUniforms;
       if (u) {
-        G.uStyleSky.value.copy(this.fogBelow).multiplyScalar(2.2).lerp(new THREE.Color(1, 1, 1), 0.25);
+        G.uStyleSky.value.copy(this.fogBelow).multiplyScalar(2.6).lerp(new THREE.Color(1, 1, 1), 0.35); // bright, clear shallows
         G.uStyleGround.value.copy(this.fogBelow).multiplyScalar(0.9);
         G.uStyleSun.value.set(0.62, 0.6, 0.5).multiplyScalar(Math.min(1, this.sunBase / 2.4));
         G.uStyleRim.value.copy(this.fogBelow).multiplyScalar(1.6);
@@ -156,7 +156,7 @@ export class Environment {
       this.fog.density = this.fogDensityBelow * (1 + k * 0.4);
       globalUniforms.uFogDensity.value = this.fog.density;
       this.scene.background = this.fog.color;
-      this.renderer.toneMappingExposure = 0.85;
+      this.renderer.toneMappingExposure = globalUniforms.uStyle.value > 0.5 ? 1.05 : 0.85;
       this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.6; this.scene.environmentIntensity = this.envBelow;
     } else {
       this.renderer.toneMappingExposure = this.exposureAbove ?? 0.82; // keeps bright sand and white surf from clipping to grey-white

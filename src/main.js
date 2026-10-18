@@ -94,6 +94,7 @@ class Game {
       this.gradePass = new ShaderPass({
         uniforms: { tDiffuse: { value: null }, tDepth: { value: rt.depthTexture }, uRes: { value: new THREE.Vector2(1, 1) }, cameraNear: { value: this.camera.near }, cameraFar: { value: this.camera.far }, uUnder: globalUniforms.uUnderwater },
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        defines: { OUTLINE: '0.0' }, // ink outlines off for the soft cosy look (set '1.0' for a toon look)
         fragmentShader: `#include <packing>
           uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 uRes; uniform float cameraNear; uniform float cameraFar; uniform float uUnder; varying vec2 vUv;
           float vz(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, cameraNear, cameraFar); }
@@ -104,7 +105,7 @@ class Game {
             // Second difference ignores smooth slopes (ground at grazing angles) and catches real silhouettes.
             float lap = abs(zl + zr + zd + zu - 4.0 * z) / max(z, 0.1);
             float edge = smoothstep(0.09, 0.18, lap) * (1.0 - smoothstep(uUnder > 0.5 ? 14.0 : 25.0, uUnder > 0.5 ? 35.0 : 70.0, z));
-            c = mix(c, c * 0.25, edge * 0.8);
+            c = mix(c, c * 0.25, edge * 0.8 * OUTLINE);
             float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
             c = mix(vec3(l), c, 1.22);
             c = mix(c * vec3(0.92, 1.0, 1.06), c, smoothstep(0.0, 0.6, l));

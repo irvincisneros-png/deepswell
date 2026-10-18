@@ -4,6 +4,7 @@ import { Terrain } from './terrain.js';
 import { Reef } from './reef.js';
 import { Life } from '../life/life.js';
 import { LandLife } from '../land/landLife.js';
+import { loadModelSet } from './models.js';
 import { Ocean, WaveMesh, Sky } from '../ocean/water.js';
 import { makeNoise } from '../core/noise.js';
 import { globalUniforms } from '../ocean/shaders.js';
@@ -33,10 +34,15 @@ export class World {
     this.ocean.near.visible = this.ocean.far.visible = eco.surface !== false;
     await tick();
     progress(0.55, eco.growMsg ?? 'Growing coral…');
-    this.reef = new Reef(this.scene, eco, this.terrain, this.quality);
+    // Stylised look: hand-shaped Blender models replace some procedural corals, rocks and fish (if the site has a set).
+    let art = null;
+    if (globalUniforms.uStyle.value > 0.5 && eco.cosyModels) {
+      try { art = { ...eco.cosyModels, models: await loadModelSet(eco.cosyModels.url) }; } catch (e) { console.warn('Model set failed to load; using procedural models.', e); }
+    }
+    this.reef = new Reef(this.scene, eco, this.terrain, this.quality, 11, art);
     await tick();
     progress(0.75, 'Painting fish and waking the reef…');
-    this.life = new Life(this.scene, eco, this.terrain, this.reef, this.particles, this.quality);
+    this.life = new Life(this.scene, eco, this.terrain, this.reef, this.particles, this.quality, 5, art);
     this.land = eco.land ? new LandLife(this.scene, eco, this.terrain, this.quality) : null;
     eco.decorate?.(this);
     await tick();

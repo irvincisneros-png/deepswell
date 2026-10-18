@@ -31,6 +31,18 @@ export const BEHAVIOUR = {
   cots: { type: 'static' },
   seacucumber: { type: 'crawl', speed: 0.01 },
 };
+/** A hand-shaped fish model (vertex colours, head +x) scaled to the species' length, with the attributes the fish shader expects. */
+function fromModel(src, look) {
+  const g = src.clone();
+  g.computeBoundingBox();
+  const bb = g.boundingBox, L = bb.max.x - bb.min.x;
+  g.translate(-(bb.max.x + bb.min.x) / 2, -(bb.max.y + bb.min.y) / 2, -(bb.max.z + bb.min.z) / 2);
+  g.scale(look.length / L, look.length / L, look.length / L);
+  const n = g.attributes.position.count, fin = new Float32Array(n * 2);
+  for (let i = 0; i < n; i++) fin[i * 2 + 1] = -1; // whole model treated as body (no fin translucency)
+  g.setAttribute('aFin', new THREE.BufferAttribute(fin, 2));
+  return { geometry: g, texture: null, emissive: null, length: look.length };
+}
 export function registerBehaviour(id, b) { BEHAVIOUR[id] = b; }
 const STATIC_GEN = {
   anemone, cots, seacucumber: seaCucumber,
@@ -60,7 +72,8 @@ function orient(q, dir, roll = 0) {
 }
 
 export class Life {
-  constructor(scene, eco, terrain, reef, particles, quality, seed = 5) {
+  constructor(scene, eco, terrain, reef, particles, quality, seed = 5, art = null) {
+    this.art = art;
     this.scene = scene; this.eco = eco; this.terrain = terrain; this.reef = reef; this.fx = particles;
     this.group = new THREE.Group(); scene.add(this.group);
     this.agents = []; this.kinds = {}; this.rigs = [];
@@ -100,8 +113,9 @@ export class Life {
 
   makeInstanced(id, n) {
     const look = LOOKS[id];
-    const built = look.kind ? buildRay(look) : buildFish(look);
-    const mat = new THREE.MeshStandardMaterial({ map: built.texture, roughness: look.metal ? 0.3 : (look.rough ?? 0.42), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
+    const model = !look.kind && this.art?.fish?.[id] && this.art.models.get(this.art.fish[id]);
+    const built = model ? fromModel(model, look) : look.kind ? buildRay(look) : buildFish(look);
+    const mat = new THREE.MeshStandardMaterial({ map: built.texture, vertexColors: !!model, roughness: look.metal ? 0.3 : (look.rough ?? 0.42), metalness: look.metal ?? 0.05, side: THREE.DoubleSide });
     if (!look.kind && !look.transparent) mat.alphaToCoverage = true; // soft fin edges (needs MSAA; otherwise fins are simply opaque)
     if (built.emissive) { mat.emissiveMap = built.emissive; mat.emissive = new THREE.Color(0xffffff); mat.emissiveIntensity = look.glowIntensity ?? 2.5; }
     if (look.transparent) { mat.transparent = true; mat.opacity = look.transparent; mat.depthWrite = false; }

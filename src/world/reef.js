@@ -56,7 +56,7 @@ function bakeAO(geo, strength = 1) {
 }
 
 export class Reef {
-  constructor(scene, eco, terrain, quality, seed = 11) {
+  constructor(scene, eco, terrain, quality, seed = 11, art = null) {
     this.group = new THREE.Group();
     scene.add(this.group);
     this.picks = []; // {x,y,z,r,id}
@@ -70,7 +70,10 @@ export class Reef {
       if (!gen) continue;
       // Rocks are collision obstacles: keep their density near the old ultra level so swimming stays easy on every tier.
       const count = Math.round(count0 * (gen.fn === rock || gen.land ? Math.min(1.5, quality.coralScale) : quality.coralScale));
-      const build = i => bakeAO(saturate(gen.fn(1000 + i * 17 + seed), gen.sat ?? (kind === 'rock' ? 1.1 : 1.45), kind === 'rock' ? 0.85 : 0.9), gen.ao ?? 1);
+      const names = art?.coral?.[kind]?.filter(n => art.models.has(n));
+      const build = names?.length
+        ? i => bakeAO(art.models.get(names[i % names.length]).clone(), 0.5) // hand-shaped model: its palette is final, only soft AO
+        : i => bakeAO(saturate(gen.fn(1000 + i * 17 + seed), gen.sat ?? (kind === 'rock' ? 1.1 : 1.45), kind === 'rock' ? 0.85 : 0.9), gen.ao ?? 1);
       const geos = Array.from({ length: gen.variants }, (_, i) => build(i));
       // The same colonies with fewer segments, drawn for distant tiles (identical shape: generators seed their own randomness).
       LOD.k = 0.4;

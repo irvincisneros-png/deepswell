@@ -79,6 +79,16 @@ export const gbr = {
   station: STATION,
   anemones: ANEMONES,
   island: { x: 120, z: 520, r: 160, h: 14 },
+  // Stylised look: hand-shaped models (tools/blender/gbr_cosy.py) for these generators and species.
+  cosyModels: {
+    url: 'assets/models/gbr_cosy.glb',
+    coral: {
+      staghorn: ['staghorn_0', 'staghorn_1', 'staghorn_2'], bushcoral: ['staghorn_2', 'staghorn_0', 'staghorn_1'],
+      braincoral: ['brain_0'], porites: ['brain_0'], tablecoral: ['table_0'], platecoral: ['table_0'],
+      softtree: ['softcoral_0', 'softcoral_1'], leathercoral: ['softcoral_1', 'softcoral_0'], rock: ['rock_0', 'rock_1', 'rock_2'],
+    },
+    fish: { bluetang: 'fish_bluetang', clownfish: 'fish_clownfish' },
+  },
   speciesInfo,
   missions,
   // Placement rules for corals: [kind, count, zoneFn(x,z,h) -> weight]
