@@ -84,6 +84,21 @@ const MODELS = {
   bluelinedoctopus: blueLinedOctopus,
 };
 
+// Vertex animation per species (model space: +x forward, +y up, +z to the side).
+const BIRD_FLAP = `
+  float wing = step(0.045, abs(transformed.z)) * step(0.16, transformed.y);
+  transformed.z *= 1.0 + wing * aMove * 2.2;                                    // spread the wings
+  transformed.y += wing * aMove * sin(uAnimTime * 26.0) * (abs(transformed.z) - 0.04) * 1.6; // and flap
+`;
+const ANIM = {
+  ghostcrab: `
+    float leg = step(0.04, abs(transformed.z)) * step(transformed.y, 0.04);
+    transformed.y += leg * aMove * max(0.0, sin(uAnimTime * 34.0 + transformed.x * 90.0 + sign(transformed.z) * 1.6)) * 0.012;
+  `,
+  oystercatcher: BIRD_FLAP,
+  silvergull: BIRD_FLAP,
+};
+
 // ---------------------------------------------------------------- behaviour
 
 export const LAND_BEHAVIOUR = {
@@ -108,7 +123,9 @@ export class LandLife {
       const mid = art?.land?.[id], geo = mid && art.models.has(mid) ? art.models.get(mid).clone() : MODELS[id]();
       const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: id === 'waratahanemone' ? 0.25 : 0.7, side: THREE.DoubleSide });
       if (id === 'bluelinedoctopus') this.patchGlow(mat);
+      if (ANIM[id]) this.patchAnim(mat, ANIM[id]);
       patchUnderwater(mat, { key: 'land' + id });
+      if (ANIM[id]) geo.setAttribute('aMove', new THREE.InstancedBufferAttribute(new Float32Array(n), 1).setUsage(THREE.DynamicDrawUsage));
       const im = new THREE.InstancedMesh(geo, mat, n);
       im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.frustumCulled = false; im.castShadow = true;
       this.group.add(im); this.meshes[id] = im;
@@ -138,6 +155,15 @@ export class LandLife {
     }
     this.burrows = this.makeBurrows();
     this.t = 0;
+  }
+  /** Vertex animation driven by a per-instance 0..1 'aMove' (legs scuttle, wings flap). */
+  patchAnim(mat, code) {
+    const prev = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      prev?.(sh, r);
+      sh.uniforms.uAnimTime = globalUniforms.uTime;
+      sh.vertexShader = 'attribute float aMove; uniform float uAnimTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + code);
+    };
   }
   patchGlow(mat) {
     mat.onBeforeCompile = sh => {
@@ -185,6 +211,7 @@ export class LandLife {
         }
         if (a.state === 'scuttle' && a.target) { const to = _v.subVectors(a.target, a.pos).setY(0); if (to.length() > 0.05) { a.pos.addScaledVector(to.normalize(), b.speed * dt); a.dir.copy(to).applyAxisAngle(_up, Math.PI / 2); } }
         a.visible = a.state !== 'hidden';
+        a.move = a.state === 'bolt' || a.state === 'scuttle' ? 1 : 0;
       } else if (b.type === 'shorebird' || b.type === 'gull') {
         // Walk and probe along the sand; walk away from people, take flight when crowded.
         if (a.state === 'fly') {
@@ -205,6 +232,7 @@ export class LandLife {
           const toHome = _v.subVectors(a.home, a.pos).setY(0); if (toHome.length() > 8) a.dir.lerp(toHome.normalize(), 0.6).normalize();
         } else if (a.state === 'walk') a.pos.addScaledVector(a.dir, b.speed * dt);
         a.grazing = a.state === 'probe';
+        a.move = a.state === 'fly' ? 1 : a.state === 'walk' ? 0.15 : 0;
       } else if (b.type === 'octopus') {
         a.alarm = Math.max(0, a.alarm - dt * 0.4);
         if (dist < 1.6) a.alarm = 1;
@@ -220,7 +248,11 @@ export class LandLife {
       if (b.type !== 'static' || !a.placed) { this.meshes[a.id].setMatrixAt(a.index, _m); a.placed = true; }
       a.pos.y = gy + (a.y ?? 0) + 0.05;
     }
-    for (const im of Object.values(this.meshes)) im.instanceMatrix.needsUpdate = true;
+    for (const [id, im] of Object.entries(this.meshes)) {
+      im.instanceMatrix.needsUpdate = true;
+      const mv = im.geometry.attributes.aMove;
+      if (mv) { for (const a of this.agents) if (a.id === id) mv.array[a.index] += ((a.move ?? 0) - mv.array[a.index]) * 0.2; mv.needsUpdate = true; }
+    }
     const om = this.meshes.bluelinedoctopus?.material.userData.alarm; if (om) om.value = octAlarm;
     for (const a of this.agents) if (a.id === 'bluelinedoctopus') a.flashing = a.alarm > 0.3;
     if (this.flyers) {
