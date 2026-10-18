@@ -26,7 +26,7 @@ export const globalUniforms = {
 };
 
 export const skyGLSL = /* glsl */`
-uniform vec3 uSunDir; uniform vec3 uSkyTop; uniform vec3 uSkyHorizon;
+uniform vec3 uSunDir; uniform vec3 uSkyTop; uniform vec3 uSkyHorizon; uniform float uStyle;
 float skyHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float skyNoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(skyHash(i), skyHash(i + vec2(1, 0)), u.x), mix(skyHash(i + vec2(0, 1)), skyHash(i + vec2(1, 1)), u.x), u.y); }
@@ -36,7 +36,9 @@ float skyClouds(vec3 d) {
   vec2 p = d.xz / (d.y + 0.1) * 1.4 + vec2(3.7, 1.3);
   float s = 0.0, a = 0.5;
   for (int i = 0; i < 5; i++) { s += a * skyNoise(p); p = p * 2.03 + vec2(11.3, 7.1); a *= 0.5; }
-  return smoothstep(0.5, 0.78, s) * smoothstep(0.0, 0.2, d.y);
+  float fade = smoothstep(0.0, 0.2, d.y);
+  // Stylised: crisp cloud shapes with a separate shaded underside band (0.5..1 = core).
+  return uStyle > 0.5 ? (smoothstep(0.56, 0.58, s) * 0.5 + smoothstep(0.66, 0.68, s) * 0.5) * fade : smoothstep(0.5, 0.78, s) * fade;
 }
 vec3 skyColor(vec3 d) {
   float y = max(d.y, -0.05);
@@ -45,7 +47,8 @@ vec3 skyColor(vec3 d) {
   float cl = skyClouds(d);
   // Clouds: bright, slightly warm tops toward the sun, blue-grey bases away from it.
   vec3 cloud = mix(vec3(0.66, 0.7, 0.78), vec3(1.05, 1.02, 0.97), 0.45 + 0.55 * pow(s, 3.0));
-  col = mix(col, cloud, cl * 0.9);
+  if (uStyle > 0.5) cloud = mix(vec3(0.74, 0.8, 0.9), vec3(1.08, 1.06, 1.02), step(0.75, cl));
+  col = mix(col, cloud, uStyle > 0.5 ? step(0.25, cl) * 0.97 : cl * 0.9);
   col += vec3(1.0, 0.92, 0.75) * (pow(s, 900.0) * 30.0 * (1.0 - cl) + pow(s, 24.0) * 0.35 + pow(s, 4.0) * 0.08);
   col = mix(col, uSkyHorizon * 0.95, smoothstep(0.02, -0.08, d.y));
   return col;
@@ -212,11 +215,13 @@ export function patchUnderwater(material, opts = {}) {
         // ambient is a sky/ground colour gradient, and a rim light outlines shapes against the background.
         float lumA = max(dot(diffuseColor.rgb, vec3(0.3333)), 0.02);
         float direct = dot(reflectedLight.directDiffuse, vec3(0.3333)) / lumA;
-        float lit = smoothstep(0.1, 0.24, direct);
+        float lit = smoothstep(0.15, 0.19, direct);                       // crisp terminator
+        float hi = smoothstep(0.5, 0.54, direct) * 0.18;                  // small bright band where light is strongest
         vec3 nS = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
         vec3 amb = mix(uStyleGround, uStyleSky, nS.y * 0.5 + 0.5);
         float rim = pow(1.0 - abs(dot(nS, normalize(cameraPosition - vWPos))), 3.0);
-        outgoingLight = diffuseColor.rgb * (amb + uStyleSun * lit) + uStyleRim * rim * (0.35 + 0.65 * lit) + totalEmissiveRadiance;
+        rim = smoothstep(0.45, 0.6, rim) * (1.0 - smoothstep(0.55, 0.9, nS.y)); // edge band on the sides of things, not on flat ground
+        outgoingLight = diffuseColor.rgb * (amb + uStyleSun * (lit + hi)) + uStyleRim * rim * (0.3 + 0.7 * lit) + totalEmissiveRadiance;
       }
       {
         float depth = uWaterLevel - vWPos.y;

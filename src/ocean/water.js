@@ -47,7 +47,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
   const uniforms = {
     uTime: globalUniforms.uTime, uSunDir: globalUniforms.uSunDir, uSkyTop: globalUniforms.uSkyTop, uSkyHorizon: globalUniforms.uSkyHorizon,
     uDeepTint: globalUniforms.uDeepTint, uShallowTint: globalUniforms.uShallowTint, uWaterTint: globalUniforms.uWaterTint,
-    uFogColor: globalUniforms.uFogColor, uFogDensity: globalUniforms.uFogDensity, uUnderwater: globalUniforms.uUnderwater,
+    uFogColor: globalUniforms.uFogColor, uFogDensity: globalUniforms.uFogDensity, uUnderwater: globalUniforms.uUnderwater, uStyle: globalUniforms.uStyle,
     uDetail: { value: detail }, uDepth: { value: depthTex }, uDepthBox: { value: depthBox },
     uCalm: { value: 1 }, uHole: { value: new THREE.Vector4(0, 0, 0, 0) }, uHoleOn: { value: 0 }, uWaveH: { value: 2.4 },
   };
@@ -102,12 +102,14 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
       float fn = fbm(uv * 1.3 + vec2(uTime * 0.2, -uTime * 0.35)) * 0.6 + fbm(uv * 4.0 - uTime * 0.4) * 0.4;
       float foam = smoothstep(0.35, 0.75, vFoam * (0.55 + fn));
       foam = max(foam, smoothstep(0.92, 1.0, vFoam));
+      if (uStyle > 0.5) foam = smoothstep(0.42, 0.48, foam);           // stylised: crisp white foam shapes
       if (!below) {
         float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
         vec3 R = reflect(-V, N); R.y = abs(R.y);
         vec3 refl = skyColor(R);
         vec3 body = mix(uShallowTint, uWaterTint, smoothstep(1.0, 9.0, wdepth));
         body = mix(body, uDeepTint, smoothstep(8.0, 40.0, wdepth));
+        if (uStyle > 0.5) { float b = smoothstep(1.0, 9.0, wdepth); b = floor(b * 3.0 + 0.5) / 3.0; body = mix(mix(uShallowTint * 1.1, uWaterTint, b), uDeepTint, step(0.5, smoothstep(8.0, 40.0, wdepth))); }
         float sss = pow(max(dot(V, -normalize(uSunDir * vec3(1.0, 0.0, 1.0))) * 0.5 + 0.5, 0.0), 3.0);
         float thick = clamp(vH, 0.0, 1.2);
         ${waveMesh ? `
@@ -122,7 +124,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
         float diff = max(dot(N, uSunDir), 0.0) * 0.35 + 0.65;
         col = mix(body * diff, refl * 0.85, fres * ${waveMesh ? '0.75' : '1.0'});
         vec3 H = normalize(V + uSunDir);
-        col += vec3(1.0, 0.95, 0.85) * pow(max(dot(N, H), 0.0), 600.0) * 6.0;
+        col += vec3(1.0, 0.95, 0.85) * (uStyle > 0.5 ? step(0.9985, max(dot(N, H), 0.0)) * 1.5 : pow(max(dot(N, H), 0.0), 600.0) * 6.0); // stylised: sparkle dots
         col = mix(col, vec3(0.95, 0.98, 1.0) * (0.75 + 0.25 * max(dot(vN, uSunDir), 0.0)), foam);
         // Aerial haze
         float hz = 1.0 - exp(-length(cameraPosition - vWPos) * 0.0016);
@@ -249,7 +251,7 @@ export class Sky {
   constructor(scene) {
     const geo = new THREE.SphereGeometry(5000, 32, 16);
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uSunDir: globalUniforms.uSunDir, uSkyTop: globalUniforms.uSkyTop, uSkyHorizon: globalUniforms.uSkyHorizon, uUnderwater: globalUniforms.uUnderwater, uFogColor: globalUniforms.uFogColor },
+      uniforms: { uSunDir: globalUniforms.uSunDir, uSkyTop: globalUniforms.uSkyTop, uSkyHorizon: globalUniforms.uSkyHorizon, uUnderwater: globalUniforms.uUnderwater, uFogColor: globalUniforms.uFogColor, uStyle: globalUniforms.uStyle },
       vertexShader: 'varying vec3 vDir; void main(){ vDir = normalize(position); vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.0); gl_Position = p.xyww; }',
       fragmentShader: `${skyGLSL}${uwFogGLSL}\nuniform float uUnderwater; uniform vec3 uFogColor; varying vec3 vDir;
         void main(){ vec3 d = normalize(vDir); vec3 c = uUnderwater > 0.5 ? uwFogColor(d, uFogColor, uSunDir) : skyColor(d); gl_FragColor = vec4(c,1.0);

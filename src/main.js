@@ -83,25 +83,36 @@ class Game {
     if (!this.quality.bloom) { this.composer = null; return; }
     // The composer renders into its own target: give it MSAA, otherwise high/ultra lose antialiasing entirely.
     const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: this.quality.antialias ? 4 : 0 });
+    if (this.stylised) rt.depthTexture = new THREE.DepthTexture(1, 1); // read by the outline pass
     this.composer = new EffectComposer(this.renderer, rt);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.35, 0.5, 0.86);
     this.composer.addPass(this.bloom);
     if (this.stylised) {
       // Colour grade: a little more saturation and contrast, teal-tinted shadows, gentle vignette.
-      this.composer.addPass(new ShaderPass({
-        uniforms: { tDiffuse: { value: null } },
+      // Ink outlines where depth jumps (silhouettes), fading with distance and fog; then the colour grade.
+      this.gradePass = new ShaderPass({
+        uniforms: { tDiffuse: { value: null }, tDepth: { value: rt.depthTexture }, uRes: { value: new THREE.Vector2(1, 1) }, cameraNear: { value: this.camera.near }, cameraFar: { value: this.camera.far }, uUnder: globalUniforms.uUnderwater },
         vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-        fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+        fragmentShader: `#include <packing>
+          uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 uRes; uniform float cameraNear; uniform float cameraFar; uniform float uUnder; varying vec2 vUv;
+          float vz(vec2 uv) { return -perspectiveDepthToViewZ(texture2D(tDepth, uv).x, cameraNear, cameraFar); }
           void main(){
             vec3 c = texture2D(tDiffuse, vUv).rgb;
+            vec2 px = 1.0 / uRes;
+            float z = vz(vUv), zl = vz(vUv - vec2(px.x, 0.0)), zr = vz(vUv + vec2(px.x, 0.0)), zd = vz(vUv - vec2(0.0, px.y)), zu = vz(vUv + vec2(0.0, px.y));
+            // Second difference ignores smooth slopes (ground at grazing angles) and catches real silhouettes.
+            float lap = abs(zl + zr + zd + zu - 4.0 * z) / max(z, 0.1);
+            float edge = smoothstep(0.09, 0.18, lap) * (1.0 - smoothstep(uUnder > 0.5 ? 14.0 : 25.0, uUnder > 0.5 ? 35.0 : 70.0, z));
+            c = mix(c, c * 0.25, edge * 0.8);
             float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
             c = mix(vec3(l), c, 1.22);
             c = mix(c * vec3(0.92, 1.0, 1.06), c, smoothstep(0.0, 0.6, l));
             vec2 d = vUv - 0.5; c *= 1.0 - dot(d, d) * 0.55;
             gl_FragColor = vec4(max(c, 0.0), 1.0);
           }`,
-      }));
+      });
+      this.composer.addPass(this.gradePass);
     }
     this.composer.addPass(new OutputPass());
   }
@@ -110,6 +121,7 @@ class Game {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.composer?.setSize(w, h);
+    if (this.gradePass) this.gradePass.uniforms.uRes.value.set(w * this.renderer.getPixelRatio(), h * this.renderer.getPixelRatio());
   }
 
   async start() {
