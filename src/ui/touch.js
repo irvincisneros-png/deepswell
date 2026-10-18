@@ -145,7 +145,7 @@ export class TouchControls {
   /** Called every frame: show the right control set and release everything when gameplay stops. */
   update() {
     const g = this.game;
-    const mode = g.panels.isOpen ? 'panel' : g.mode;
+    const mode = g.panels.isOpen ? 'panel' : g.mode === 'land' ? 'dive' : g.mode; // walking uses the swim controls (stick, look, up = jump)
     if (mode !== this.mode) {
       this.mode = mode;
       this.root.dataset.mode = mode;
@@ -153,7 +153,7 @@ export class TouchControls {
       if (mode !== 'surf' && mode !== 'dive') this.releaseAll();
     }
     // Phone turned upright mid-game: pause so breath doesn't run out behind the 'turn sideways' screen.
-    if ((g.mode === 'surf' || g.mode === 'dive') && !g.panels.isOpen && innerHeight > innerWidth) { this.releaseAll(); g.pauseMenu(); }
+    if ((g.mode === 'surf' || g.mode === 'dive' || g.mode === 'land') && !g.panels.isOpen && innerHeight > innerWidth) { this.releaseAll(); g.pauseMenu(); }
     const sub = g.eco?.vehicle === 'sub';
     if (sub !== this.sub) { this.sub = sub; this.root.classList.toggle('sub', sub); }
     const board = sub ? '⬆' : g.eco?.surf ? '🏄' : '⛵';

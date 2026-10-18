@@ -4,6 +4,7 @@ import { staghorn, bushCoral, plateCoral, barrelSponge, softTree, tableCoral, br
 import { patchUnderwater } from '../ocean/shaders.js';
 import { mulberry32 } from '../core/noise.js';
 import { LOD } from './lod.js';
+import { foliageAtlas } from './foliage.js';
 
 const GENERATORS = {
   staghorn: { fn: staghorn, variants: 4, scale: [0.9, 1.6], radius: 0.9, sink: 0.05, rough: 0.7, cluster: 7 },
@@ -68,7 +69,7 @@ export class Reef {
       const gen = GENERATORS[kind];
       if (!gen) continue;
       // Rocks are collision obstacles: keep their density near the old ultra level so swimming stays easy on every tier.
-      const count = Math.round(count0 * (gen.fn === rock ? Math.min(1.5, quality.coralScale) : quality.coralScale));
+      const count = Math.round(count0 * (gen.fn === rock || gen.land ? Math.min(1.5, quality.coralScale) : quality.coralScale));
       const build = i => bakeAO(saturate(gen.fn(1000 + i * 17 + seed), gen.sat ?? (kind === 'rock' ? 1.1 : 1.45), kind === 'rock' ? 0.85 : 0.9), gen.ao ?? 1);
       const geos = Array.from({ length: gen.variants }, (_, i) => build(i));
       // The same colonies with fewer segments, drawn for distant tiles (identical shape: generators seed their own randomness).
@@ -82,10 +83,11 @@ export class Reef {
       while (placed < count && tries++ < count * 60) {
         let x, z;
         if (gen.cluster && left > 0) { x = cx + (rnd() - 0.5) * 2 * (1 + gen.cluster * 0.35); z = cz + (rnd() - 0.5) * 2 * (1 + gen.cluster * 0.35); }
+        else if (gen.region) { const R = gen.region; x = R.xMin + rnd() * (R.xMax - R.xMin); z = R.zMin + rnd() * (R.zMax - R.zMin); }
         else { x = b.xMin - 10 + rnd() * (b.xMax - b.xMin + 20); z = b.zMin - 10 + rnd() * (b.zMax - b.zMin + 20); }
         const h = terrain.heightAt(x, z);
         const reef = eco.reefiness(x, z);
-        const w = weightFn(x, z, h) * (kind === 'rock' ? 1 : 0.15 + reef);
+        const w = weightFn(x, z, h) * (kind === 'rock' || gen.land ? 1 : 0.15 + reef); // land plants follow their own habitat weights
         if (rnd() > w) continue;
         if (h > (gen.maxH ?? -1.9) || h < (gen.minH ?? -1e9)) continue; // keep clear of the surface (unless the plant grows out of it)
         // Slope check — sit on reasonably flat ground.
@@ -100,9 +102,11 @@ export class Reef {
       geos.forEach((geo, vi) => {
         const list = placements[vi];
         if (!list.length) return;
-        const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: gen.rough, metalness: 0, side: gen.upright || gen.doubleSide ? THREE.DoubleSide : THREE.FrontSide });
+        const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: gen.rough, metalness: 0, side: gen.upright || gen.doubleSide || gen.foliage ? THREE.DoubleSide : THREE.FrontSide });
+        // Leaf-card plants: painted foliage atlas, alpha-cut (soft edges with MSAA); shadows inherit the cut-out.
+        if (gen.foliage) { mat.map = foliageAtlas(); mat.alphaTest = 0.45; mat.alphaToCoverage = true; }
         // Only reef-building/soft corals with zooxanthellae bleach (not sea fans, sponges or rock).
-        patchUnderwater(mat, { coral: gen.bleaches ?? !['rock', 'seafan', 'sponge'].includes(kind), sway: gen.sway ?? 0, transl: gen.transl ?? 0, detail: true, detailScale: gen.detailScale ?? 38 });
+        patchUnderwater(mat, { coral: gen.bleaches ?? !['rock', 'seafan', 'sponge'].includes(kind), sway: gen.sway ?? 0, transl: gen.transl ?? 0, detail: !gen.foliage, detailScale: gen.detailScale ?? 38 });
         const name = (gen.as ?? kind) + vi;
         const q = new THREE.Quaternion(), e3 = new THREE.Euler();
         // Per-instance data, generated in placement order (keeps the random stream identical).
@@ -131,7 +135,7 @@ export class Reef {
             const g = new THREE.BufferGeometry(); // shares the variant's vertex buffers; only the instance data differs
             g.setIndex(src.index); for (const [k, at] of Object.entries(src.attributes)) g.setAttribute(k, at);
             g.setAttribute('aBleach', bleach);
-            const im = new THREE.InstancedMesh(g, mat, items.length); im.name = name;
+            const im = new THREE.InstancedMesh(g, mat, items.length); im.name = name; im.userData.noShadow = !!gen.noShadow;
             items.forEach((e, i) => { im.setMatrixAt(i, e.m); im.setColorAt(i, e.tint); });
             im.instanceMatrix.needsUpdate = true;
             im.computeBoundingSphere();
@@ -171,10 +175,13 @@ export class Reef {
   }
   /** Hide whole tiles beyond the visible range (underwater fog makes them invisible anyway). */
   cull(camPos, range, lodRange = Infinity) {
+    const above = camPos.y > 0.3;
     for (const im of this.meshes) {
       if (im.userData.isLo) continue;
       const bs = im.boundingSphere, d = bs ? bs.center.distanceTo(camPos) - bs.radius : 0;
-      const inRange = d < range, lo = im.userData.lo;
+      // Seen from above the water, submerged tiles fade into the water colour within a few tens of metres.
+      const submerged = bs && bs.center.y + bs.radius < -0.5;
+      const inRange = d < (above && submerged ? 45 : range), lo = im.userData.lo;
       im.visible = inRange && !(lo && d > lodRange);
       if (lo) lo.visible = inRange && d > lodRange;
     }

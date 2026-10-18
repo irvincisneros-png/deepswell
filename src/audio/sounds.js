@@ -10,6 +10,13 @@ function def(bus, fn) { fn.bus = bus; return fn; }
 
 export const SOUNDS = {
   // ---------------------------------------------------------------- body
+  footstep: def('body', (E, out, g, o) => {
+    // Bare feet on sand: a soft crunch (dry) or a duller squelch-slap (wet sand, shallows).
+    const t = T(E, o), wet = !!o.wet;
+    const f = E.filter('bandpass', wet ? r(500, 750) : r(1400, 2100), wet ? 1.2 : 0.7);
+    f.connect(E.env(out, t, (wet ? 0.1 : 0.07) * g, 0.004, wet ? 0.12 : 0.08));
+    E.noise(wet ? 'pink' : 'white', t, 0.16, f);
+  }),
   breath: def('body', (E, out, g, o) => {
     const t = T(E, o), inhale = o.inhale ?? true;
     const f = E.filter('bandpass', inhale ? 1500 : 850, 0.8); f.connect(E.env(out, t, 0.14 * g, inhale ? 0.45 : 0.15, inhale ? 0.6 : 0.9));

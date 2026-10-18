@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { Terrain } from './terrain.js';
 import { Reef } from './reef.js';
 import { Life } from '../life/life.js';
+import { LandLife } from '../land/landLife.js';
 import { Ocean, WaveMesh, Sky } from '../ocean/water.js';
 import { makeNoise } from '../core/noise.js';
 import { globalUniforms } from '../ocean/shaders.js';
@@ -36,6 +37,7 @@ export class World {
     await tick();
     progress(0.75, 'Painting fish and waking the reef…');
     this.life = new Life(this.scene, eco, this.terrain, this.reef, this.particles, this.quality);
+    this.land = eco.land ? new LandLife(this.scene, eco, this.terrain, this.quality) : null;
     eco.decorate?.(this);
     await tick();
     progress(0.9, 'Final touches…');
@@ -47,9 +49,11 @@ export class World {
       if (!this.grid.has(k)) this.grid.set(k, []);
       this.grid.get(k).push({ center: new THREE.Vector3(p.x, p.y, p.z), r: p.r * 0.75, pick: p });
     }
-    this.bounds = eco.bounds;
+    this.bounds = eco.diveBounds ?? eco.bounds;
     progress(1, 'Ready');
   }
+  /** Underwater animals plus beach/rock-platform animals. */
+  allAgents() { return this.land ? [...this.life.agents, ...this.land.agents] : this.life.agents; }
   surfaceAt(x, z) { return this.ocean.heightAt(x, z, this.time ?? 0); }
   groundAt(x, z) { return this.terrain.heightAt(x, z); }
   nearbyColliders(p, r = 3) {
@@ -70,7 +74,7 @@ export class World {
       const t = -b - Math.sqrt(disc);
       if (t > 0 && t < bt) { bt = t; best = { ...hit, dist: t }; }
     };
-    for (const a of this.life.agents) {
+    for (const a of this.allAgents()) {
       if (a.visible === false) continue;
       test(a.pos.x, a.pos.y, a.pos.z, Math.max(0.2, a.radius * (a.scale ?? 1)), { id: a.id, agent: a });
     }
@@ -90,15 +94,15 @@ export class World {
   /** Photo candidates: every visible creature plus nearby coral colonies. */
   photoCandidates(center, range = 16) {
     const out = [];
-    for (const a of this.life.agents) if (a.visible !== false && a.pos.distanceTo(center) < range) out.push({ pos: a.pos, r: Math.max(0.12, a.radius * (a.scale ?? 1)), id: a.id, agent: a });
+    for (const a of this.allAgents()) if (a.visible !== false && a.pos.distanceTo(center) < range) out.push({ pos: a.pos, r: Math.max(0.12, a.radius * (a.scale ?? 1)), id: a.id, agent: a });
     for (const p of this.reef.picks) if (!p.hidden && Math.hypot(p.x - center.x, p.z - center.z) < range) out.push({ pos: new THREE.Vector3(p.x, p.y, p.z), r: p.r * 0.8, id: p.id });
     return out;
   }
   dispose() {
-    this.terrain?.dispose(); this.reef?.dispose(); this.life?.dispose();
+    this.terrain?.dispose(); this.reef?.dispose(); this.life?.dispose(); this.land?.dispose();
     for (const o of [this.ocean?.near, this.ocean?.far, this.waveMesh?.mesh]) if (o) { o.geometry.dispose(); o.material.dispose(); o.parent?.remove(o); }
     this.ocean?.group.parent?.remove(this.ocean.group);
     this.eco?.undecorate?.(this);
-    this.terrain = this.reef = this.life = this.ocean = this.waveMesh = null;
+    this.terrain = this.reef = this.life = this.land = this.ocean = this.waveMesh = null;
   }
 }

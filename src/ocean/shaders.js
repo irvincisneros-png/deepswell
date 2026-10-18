@@ -21,11 +21,26 @@ export const globalUniforms = {
 
 export const skyGLSL = /* glsl */`
 uniform vec3 uSunDir; uniform vec3 uSkyTop; uniform vec3 uSkyHorizon;
+float skyHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float skyNoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(skyHash(i), skyHash(i + vec2(1, 0)), u.x), mix(skyHash(i + vec2(0, 1)), skyHash(i + vec2(1, 1)), u.x), u.y); }
+// Fair-weather cumulus on a flat cloud layer, thinning toward the horizon (static: no time uniform here).
+float skyClouds(vec3 d) {
+  if (d.y <= 0.0) return 0.0;
+  vec2 p = d.xz / (d.y + 0.1) * 1.4 + vec2(3.7, 1.3);
+  float s = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { s += a * skyNoise(p); p = p * 2.03 + vec2(11.3, 7.1); a *= 0.5; }
+  return smoothstep(0.5, 0.78, s) * smoothstep(0.0, 0.2, d.y);
+}
 vec3 skyColor(vec3 d) {
   float y = max(d.y, -0.05);
   vec3 col = mix(uSkyHorizon, uSkyTop, pow(clamp(y, 0.0, 1.0), 0.45));
   float s = max(dot(d, uSunDir), 0.0);
-  col += vec3(1.0, 0.92, 0.75) * (pow(s, 900.0) * 30.0 + pow(s, 24.0) * 0.35 + pow(s, 4.0) * 0.08);
+  float cl = skyClouds(d);
+  // Clouds: bright, slightly warm tops toward the sun, blue-grey bases away from it.
+  vec3 cloud = mix(vec3(0.66, 0.7, 0.78), vec3(1.05, 1.02, 0.97), 0.45 + 0.55 * pow(s, 3.0));
+  col = mix(col, cloud, cl * 0.9);
+  col += vec3(1.0, 0.92, 0.75) * (pow(s, 900.0) * 30.0 * (1.0 - cl) + pow(s, 24.0) * 0.35 + pow(s, 4.0) * 0.08);
   col = mix(col, uSkyHorizon * 0.95, smoothstep(0.02, -0.08, d.y));
   return col;
 }

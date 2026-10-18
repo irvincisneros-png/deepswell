@@ -580,10 +580,368 @@ export const species = [
       'Reef Life Survey – Sponge gardens',
       'Bell 2008, Estuarine, Coastal and Shelf Science – The functional roles of marine sponges'
     ]
-  }
+  },
+  // ---------------------------------------------------------------- beach, dunes and rock platform (walk mode)
+  // Teacher note: conservation statuses for these shore species were written from general knowledge in
+  // October 2026 and should be checked against the IUCN Red List and the NSW BC Act schedules before quoting.
+  {
+    id: 'ghostcrab',
+    habitat: 'beach',
+    common: 'Smooth-handed ghost crab',
+    sci: 'Ocypode cordimanus',
+    group: 'invertebrate',
+    feeding: 'omnivore',
+    trophic: 'Secondary consumer and scavenger',
+    size: 'Shell (carapace) up to about 4 cm wide',
+    depth: 'Upper beach and foredune toe, in burrows above the high-tide line',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'The main predator and scavenger of the upper beach: it cleans up stranded animals and eats small invertebrates, turtle hatchlings and seeds.',
+    interactions: [
+      'Scavenges washed-up fish, jellyfish and seaweed wrack',
+      'Eaten by shorebirds, silver gulls and foxes',
+      'Burrows are crushed by vehicles and trampling, so burrow counts drop on busy beaches'
+    ],
+    didYouKnow: 'Scientists can survey a whole beach without catching a single crab: they count ghost crab burrow holes, and fewer holes usually means more human disturbance.',
+    fieldNotes: 'Ghost crabs are mostly active at night and spend hot days in deep burrows, where the sand stays cool and damp. They breathe with gills, so they must keep them moist; they dash to the swash zone or wick water up from damp sand with tufts of hair near their legs. Their eyes sit on long stalks and give almost all-round vision, which is why they bolt for their burrow long before you get close.',
+    spot: 'Look for small round holes with a fan of fresh sand on the dry upper beach. Approach slowly: a pale, sand-coloured crab may sprint sideways and vanish down a hole.',
+    threats: 'Beach driving, heavy trampling, beach grooming and coastal development; sea-level rise squeezing the beach against seawalls.',
+    sources: [
+      'Australian Museum – Ghost crabs (genus Ocypode)',
+      'Schlacher and colleagues – ghost crab burrow counts as indicators of human impact on sandy beaches (Griffith University / USC research)'
+    ]
+  },
+  {
+    id: 'oystercatcher',
+    habitat: 'beach',
+    common: 'Australian pied oystercatcher',
+    sci: 'Haematopus longirostris',
+    group: 'bird',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'About 45–50 cm long',
+    depth: 'Swash zone of ocean beaches, estuary sand and mudflats',
+    status: 'Endangered in NSW (BC Act); Least Concern globally (IUCN)',
+    statusCode: 'EN',
+    role: 'A specialist predator of beach shellfish, especially pipis, and a sign of a healthy, undisturbed beach.',
+    interactions: [
+      'Probes and prises open pipis (Donax deltoides) and other bivalves with its long orange bill',
+      'Also eats beach worms, crabs and small fish',
+      'Nests are scrapes in the sand, so dogs, foxes, vehicles and people walking above the tide line can destroy eggs'
+    ],
+    didYouKnow: 'Pied oystercatcher pairs can return to the same stretch of beach to nest year after year – and their eggs look so much like sandy pebbles that people step on them without noticing.',
+    fieldNotes: 'You can tell it apart from the all-black sooty oystercatcher (which prefers rock platforms) by its white belly and white wing stripe. Pairs walk along the edge of the swash, stabbing into the wet sand after each wave pulls back. When people or dogs come too close, the adults walk away from the nest, call loudly and may fly off, leaving eggs and chicks exposed to heat and predators.',
+    spot: 'Scan the wet sand at the water\'s edge for a black-and-white bird with a long, bright orange-red bill and pink legs. Keep your distance so it keeps feeding.',
+    threats: 'Disturbance of nesting birds by people, dogs and vehicles; fox predation; loss of beach habitat; over-harvesting of pipis.',
+    sources: [
+      'NSW Department of Climate Change, Energy, the Environment and Water – Pied Oystercatcher threatened species profile',
+      'BirdLife Australia – Australian Pied Oystercatcher',
+      'IUCN Red List – Haematopus longirostris'
+    ]
+  },
+  {
+    id: 'silvergull',
+    habitat: 'beach',
+    common: 'Silver gull',
+    sci: 'Chroicocephalus novaehollandiae',
+    group: 'bird',
+    feeding: 'omnivore',
+    trophic: 'Secondary consumer and scavenger',
+    size: 'About 40 cm long',
+    depth: 'Beaches, rock platforms, estuaries and towns along the whole coast',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'An adaptable scavenger and predator that cleans up the strandline – and takes advantage of human food scraps.',
+    interactions: [
+      'Eats small fish, crabs, worms, insects and washed-up animals',
+      'Steals eggs and chicks of other beach-nesting birds when given the chance',
+      'Populations near cities are boosted by rubbish tips and people feeding them'
+    ],
+    didYouKnow: 'You can age a silver gull by its colours: adults have a red bill, red legs and a red eye ring, while young birds have dark bills and brown mottling on their wings.',
+    fieldNotes: 'Silver gulls are the most common gull in Australia. Natural foods give them a balanced diet, but chips and bread do not, and crowds of fed gulls also gang up on shorebirds and their nests. That is why many councils ask beachgoers not to feed them.',
+    spot: 'You will hear them before you see them: white birds with grey backs and black wing tips standing on the beach or wheeling overhead.',
+    threats: 'Not threatened; it has increased near cities. Plastic ingestion and fishing line entanglement harm individual birds.',
+    sources: [
+      'BirdLife Australia – Silver Gull',
+      'IUCN Red List – Chroicocephalus novaehollandiae (Least Concern)'
+    ]
+  },
+  {
+    id: 'spinifex',
+    habitat: 'beach',
+    common: 'Beach spinifex',
+    sci: 'Spinifex sericeus',
+    group: 'plant',
+    feeding: 'photosynthetic',
+    trophic: 'Producer',
+    size: 'Leaves up to about 30 cm; runners several metres long',
+    depth: 'Foredune and upper beach – the first plants above the high-tide line',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'The pioneer sand-binder of the foredune: its runners trap wind-blown sand and build the dune that shelters every plant behind it.',
+    interactions: [
+      'Traps sand blown off the beach, slowly building the foredune',
+      'Shelters ghost crabs, insects and beach-nesting birds',
+      'Damaged by trampling and vehicles, which can start blowouts in the dune'
+    ],
+    didYouKnow: 'Spinifex plants are either male or female. The female seed heads break off as spiky balls that bounce along the beach in the wind, spreading seed far along the coast.',
+    fieldNotes: 'Its silvery leaves are covered in fine hairs that reflect sunlight and reduce water loss, and it tolerates salt spray and being buried by sand – in fact burial stimulates new growth. Runners (stolons) creep across the sand and root at their joints. This is a native grass and should not be confused with the "spinifex" (Triodia) hummock grasses of inland Australia.',
+    spot: 'Walk up the beach toward the dune: the silver-green grass with long runners spreading over bare sand is beach spinifex. Use the access track – don\'t walk on the dune.',
+    threats: 'Trampling, vehicles, invasive plants such as bitou bush, and erosion during storms.',
+    sources: [
+      'NSW Department of Primary Industries – Coastal dune management (dune plants)',
+      'PlantNET (NSW Flora Online) – Spinifex sericeus'
+    ]
+  },
+  {
+    id: 'pigface',
+    habitat: 'beach',
+    common: 'Pigface',
+    sci: 'Carpobrotus glaucescens',
+    group: 'plant',
+    feeding: 'photosynthetic',
+    trophic: 'Producer',
+    size: 'Spreading mats up to several metres across; flowers about 5 cm',
+    depth: 'Dunes, headlands and cliff tops near the sea',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A salt-tolerant succulent that covers bare sand on the dunes, holding it in place and feeding insects and birds.',
+    interactions: [
+      'Its bright magenta flowers are visited by native bees and other insects',
+      'Fruits are eaten by birds and other animals, which spread the seeds',
+      'Helps stabilise sand between spinifex and the shrubs further back'
+    ],
+    didYouKnow: 'Aboriginal people have long eaten the salty-sweet fruit of pigface, and the juice of the leaves has traditionally been used to soothe stings and burns.',
+    fieldNotes: 'Pigface is a succulent: its thick, three-sided leaves store water so it can survive on dry sand and in salt spray. Leaves often turn red when the plant is stressed by drought or cold. The flowers open in the sun and close in the evening.',
+    spot: 'Look for low mats of fleshy, finger-like leaves with pink-purple daisy-like flowers on the front and back of the dune.',
+    threats: 'Trampling and dune erosion; competition from introduced plants, including other Carpobrotus species.',
+    sources: [
+      'PlantNET (NSW Flora Online) – Carpobrotus glaucescens',
+      'Australian National Botanic Gardens – Aboriginal plant use (Carpobrotus)'
+    ]
+  },
+  {
+    id: 'coastalwattle',
+    habitat: 'beach',
+    common: 'Coastal wattle',
+    sci: 'Acacia longifolia subsp. sophorae',
+    group: 'plant',
+    feeding: 'photosynthetic',
+    trophic: 'Producer',
+    size: 'Low, spreading shrub, usually 1–3 m tall',
+    depth: 'Back of the foredune and the hind dune',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A tough shrub that forms the windbreak behind the foredune and adds nitrogen to poor sandy soils.',
+    interactions: [
+      'Bacteria in its root nodules fix nitrogen from the air, enriching the sand for other plants',
+      'Yellow flower spikes in late winter and spring feed bees and other insects',
+      'Seeds are spread by ants and eaten by birds'
+    ],
+    didYouKnow: 'What look like leaves on this wattle are actually flattened leaf stalks called phyllodes – an adaptation that loses less water than true leaves.',
+    fieldNotes: 'Salt-laden onshore winds kill the growing tips facing the sea, so coastal wattle is pruned into low, wedge-shaped thickets that rise toward the land. It is native on the NSW coast and often planted in dune restoration, but it has become an invasive weed where it has been introduced overseas.',
+    spot: 'Look behind the foredune for dense, wind-sheared shrubs with long, bright green "leaves" and yellow rod-shaped flowers.',
+    threats: 'Clearing for development, fire, and competition from bitou bush.',
+    sources: [
+      'PlantNET (NSW Flora Online) – Acacia longifolia subsp. sophorae',
+      'NSW Department of Primary Industries – Coastal dune management'
+    ]
+  },
+  {
+    id: 'coastbanksia',
+    habitat: 'beach',
+    common: 'Coast banksia',
+    sci: 'Banksia integrifolia',
+    group: 'plant',
+    feeding: 'photosynthetic',
+    trophic: 'Producer',
+    size: 'Usually 5–15 m tall on the coast (stunted on exposed dunes)',
+    depth: 'Hind dunes and headlands, sheltered from the strongest salt winds',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A key tree of the hind-dune woodland: its winter flowers are a vital food source when little else is flowering.',
+    interactions: [
+      'Pale yellow flower spikes produce nectar for honeyeaters, lorikeets, flying-foxes and possums',
+      'Old cones and hollows shelter insects and small animals',
+      'Shades and stabilises the older dunes behind the foredune'
+    ],
+    didYouKnow: 'Coast banksia leaves are dark green on top and silvery-white underneath – when the wind flips them, the whole tree seems to flash silver.',
+    fieldNotes: 'Banksias are named after the botanist Joseph Banks, who collected them at Botany Bay in 1770. Unlike many banksias, coast banksia does not need fire to release its seeds. It flowers mainly from late summer to winter, which makes it an important food tree for nectar-feeding birds and mammals in the cooler months.',
+    spot: 'Walk over the foredune (on the track!) into the scrub behind: gnarled trees with grey bark, leathery leaves and cylinder-shaped yellow flowers or grey cones.',
+    threats: 'Clearing for coastal development, dieback and changed fire regimes.',
+    sources: [
+      'PlantNET (NSW Flora Online) – Banksia integrifolia',
+      'Australian National Botanic Gardens – Banksia integrifolia'
+    ]
+  },
+  {
+    id: 'neptunesnecklace',
+    habitat: 'rockplatform',
+    common: 'Neptune\'s necklace',
+    sci: 'Hormosira banksii',
+    group: 'algae',
+    feeding: 'photosynthetic',
+    trophic: 'Producer',
+    size: 'Chains of beads up to about 30 cm long',
+    depth: 'Mid-shore of rock platforms, exposed at low tide',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'The main canopy seaweed of the mid-shore: its damp mats shade the rock and shelter snails, crabs and small fish at low tide.',
+    interactions: [
+      'Shelters periwinkles, limpets, crabs and amphipods from drying out at low tide',
+      'Grazed by snails and other herbivores',
+      'Easily crushed by people walking on rock platforms, and slow to recover'
+    ],
+    didYouKnow: 'Each bead of Neptune\'s necklace is a hollow, water-filled float – a portable water supply that helps the seaweed survive hours out of water at low tide.',
+    fieldNotes: 'Rock platforms show zonation: bands of different species at different heights, set by how long each spot is exposed to air and sun. Neptune\'s necklace dominates the middle zone. Studies on Australian platforms have shown that regular trampling can strip it from the rock, which changes the whole community living underneath.',
+    spot: 'At low tide, look for olive-brown chains of shiny beads draped over the rock around the pools.',
+    threats: 'Trampling, marine heatwaves during low tides, and sewage and stormwater pollution.',
+    sources: [
+      'Keough and Quinn 1998, Ecological Applications – Effects of periodic disturbances from trampling on rocky intertidal algal beds',
+      'Australian Museum – Rocky shores: zonation'
+    ]
+  },
+  {
+    id: 'waratahanemone',
+    habitat: 'rockplatform',
+    common: 'Waratah anemone',
+    sci: 'Actinia tenebrosa',
+    group: 'invertebrate',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'Up to about 5 cm across',
+    depth: 'Crevices and pool edges on the mid to low shore',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A small predator of the rock platform that catches tiny animals with stinging tentacles when the tide is in.',
+    interactions: [
+      'Catches small crustaceans, worms and drifting animals with stinging cells (nematocysts)',
+      'Fights neighbouring anemones using blue stinging bulbs around its rim',
+      'Eaten by some sea slugs, fish and sea stars'
+    ],
+    didYouKnow: 'At low tide the waratah anemone pulls its tentacles in and becomes a shiny red blob – a trick that stops it drying out until the sea returns.',
+    fieldNotes: 'The blue beads around the top of the column are called acrorhagi. They are packed with stinging cells and are used in slow-motion "fights" with other anemones that are not clones of itself. Young anemones are brooded inside the parent and released fully formed, so neighbouring anemones are often clones.',
+    spot: 'Look in damp cracks and around the edges of rock pools for glossy, dark red jelly-like blobs. Look, don\'t touch.',
+    threats: 'Trampling and collecting; heat stress during low tides in heatwaves.',
+    sources: [
+      'Australian Museum – Waratah anemone (Actinia tenebrosa)',
+      'Ayre and Grosberg – clonal aggression and acrorhagi in Actinia tenebrosa (research summaries)'
+    ]
+  },
+  {
+    id: 'bluelinedoctopus',
+    habitat: 'rockplatform',
+    common: 'Blue-lined octopus (a blue-ringed octopus)',
+    sci: 'Hapalochlaena fasciata',
+    group: 'invertebrate',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'Body about 4–5 cm; arm span up to about 15 cm',
+    depth: 'Rock pools and shallow reef, southern Queensland to southern NSW',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A small, highly venomous predator of rock pools that hunts crabs and shrimps at night.',
+    interactions: [
+      'Hunts crabs and shrimps, paralysing them with venomous saliva',
+      'Hides in crevices, empty shells and even rubbish such as cans and bottles',
+      'Its venom comes from bacteria that live in its salivary glands'
+    ],
+    didYouKnow: 'Its venom contains tetrodotoxin, which can paralyse a person within minutes – there is no antivenom, but people survive if someone gives rescue breathing (CPR) until help arrives. Call 000.',
+    fieldNotes: 'When calm it is a dull, mottled yellow-brown and hard to see. When disturbed, iridescent blue lines suddenly brighten as a warning (this is called aposematic colouring). Bites usually happen when people pick up shells or the octopus itself, often without feeling a sting. Never put your hands into crevices or pick up shells in rock pools.',
+    spot: 'Look into the rock pools without touching anything. If you see small electric-blue lines flash, back away slowly.',
+    threats: 'Not considered threatened; affected by habitat damage and collection for the aquarium trade.',
+    sources: [
+      'Australian Museum – Blue-lined octopus (Hapalochlaena fasciata)',
+      'Australian Resuscitation Council / NSW Health – first aid for blue-ringed octopus bites'
+    ]
+  },
 ];
 
 export const missions = [
+  {
+    id: 'beach-to-dune',
+    title: 'From the swash to the dunes',
+    brief: 'Start on the beach and walk up through the zones: the wet swash zone, the dry upper beach, the foredune and the scrub behind it. Photograph four beach and dune species and work out how each zone is shaped by waves, wind, sand and salt.',
+    goal: { type: 'photo-species', count: 4, filter: { habitat: 'beach' } },
+    hint: 'Walk slowly near birds and crabs. Ghost crab holes are on the dry sand; oystercatchers feed at the water\'s edge; spinifex is on the foredune. Stay on the tracks over the dunes.',
+    questions: [
+      {
+        q: 'Why are foredune plants such as spinifex so important for the coast?',
+        options: [
+          'They trap wind-blown sand and build up the dune, which protects the land behind it from storm waves and wind',
+          'They make the sand whiter',
+          'They stop the tide from coming in',
+          'They are only important as food for gulls'
+        ],
+        answer: 0,
+        explain: 'Spinifex runners trap sand and bind it together. The foredune they build is a buffer that storm waves erode instead of the land behind, and it shelters the shrubs and trees further back.'
+      },
+      {
+        q: 'Scientists count ghost crab burrows along a beach. What does a low burrow count usually suggest?',
+        options: [
+          'The sand is too cold for crabs',
+          'More human disturbance, such as trampling, beach driving or grooming',
+          'There are too many shorebirds',
+          'The crabs have moved underwater'
+        ],
+        answer: 1,
+        explain: 'Ghost crab burrows are easy to count and drop on beaches with heavy trampling, vehicles or beach grooming, so they are used as a quick indicator of human impact.'
+      },
+      {
+        q: 'Pied oystercatchers nest on open sand above the high-tide line. Which action helps them most?',
+        options: [
+          'Walking through the nesting area to get close-up photos',
+          'Bringing your dog to keep foxes away',
+          'Keeping dogs on leads, staying out of fenced nesting areas and giving the birds plenty of space',
+          'Feeding them bread'
+        ],
+        answer: 2,
+        explain: 'Disturbance makes adults leave the nest, exposing eggs and chicks to heat and predators. Leashed dogs, distance and respect for nesting fences make a real difference for this endangered (in NSW) bird.'
+      }
+    ]
+  },
+  {
+    id: 'rock-pool-ramble',
+    title: 'Rock pool ramble',
+    brief: 'At low tide the rock platform at the east end of the beach is exposed. Walk out (carefully – watch the waves and never turn your back on the ocean), find the bands of life at different heights and photograph three rock-platform species. Look, don\'t touch.',
+    goal: { type: 'photo-species', count: 3, filter: { habitat: 'rockplatform' } },
+    hint: 'Neptune\'s necklace drapes the rock around the pools; waratah anemones sit in the damp cracks at pool edges; something small and dangerous hides in a pool.',
+    questions: [
+      {
+        q: 'Different species live at different heights on a rock platform (zonation). What mainly causes this?',
+        options: [
+          'The colour of the rock',
+          'How long each height is out of the water at low tide – drying, heat and salt get harsher higher up, while competition and predators matter more lower down',
+          'Where people usually walk',
+          'Random chance'
+        ],
+        answer: 1,
+        explain: 'Higher on the shore, organisms spend longer exposed to air, sun and fresh rain, so only tough species survive. Lower down, conditions are easier but competition and predation are stronger. The result is bands, or zones, of species.'
+      },
+      {
+        q: 'You see small blue lines flash on an octopus in a rock pool. What should you do?',
+        options: [
+          'Pick it up carefully to take a closer look',
+          'Poke it with a stick to see the colours again',
+          'Back away slowly without touching it, and warn others – its bite can be deadly',
+          'Put it in a bucket to show your friends'
+        ],
+        answer: 2,
+        explain: 'Blue-ringed (blue-lined) octopuses carry tetrodotoxin and the bite may not even hurt. The flashing blue is a warning. If someone is bitten: call 000 and start rescue breathing (CPR) if they stop breathing.'
+      },
+      {
+        q: 'Why is walking on Neptune\'s necklace a problem?',
+        options: [
+          'It is slippery but otherwise not affected',
+          'Trampling crushes the beads and can strip the seaweed from the rock, removing shelter for the animals that live underneath',
+          'It makes the beads grow faster',
+          'It only matters at high tide'
+        ],
+        answer: 1,
+        explain: 'Studies on Australian platforms found that regular trampling removes Neptune\'s necklace, and the snails, crabs and other animals that rely on its damp shelter at low tide decline too. Step on bare rock or sand where you can.'
+      }
+    ]
+  },
   {
     id: 'read-the-beach',
     title: 'Read the beach',

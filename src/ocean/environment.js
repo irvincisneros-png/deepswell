@@ -145,7 +145,7 @@ export class Environment {
       this.renderer.toneMappingExposure = 0.85;
       this.sun.intensity = this.sunBase * 0.75; this.hemi.intensity = this.hemiBase * 0.6; this.scene.environmentIntensity = this.envBelow;
     } else {
-      this.renderer.toneMappingExposure = 1.0;
+      this.renderer.toneMappingExposure = this.exposureAbove ?? 0.82; // keeps bright sand and white surf from clipping to grey-white
       this.sun.intensity = this.sunBase; this.hemi.intensity = this.hemiBase; this.scene.environmentIntensity = 0.6;
       this.fog.color.copy(this.fogAbove);
       this.fog.density = 0.0011;

@@ -310,3 +310,173 @@ export function abalone(seed) {
   colorize(g, v => { const r = Math.hypot(v.x, v.z); return Math.sin(r * 120) > 0.3 ? [0.45, 0.4, 0.32] : [0.3, 0.32, 0.25]; });
   return strip(g);
 }
+
+// ---------------------------------------------------------------- beach, dune and rock-platform plants
+// (Illawarra coast, NSW.) Base at y = 0, metres.
+
+/** A thin leaf: a pointed blade along a gentle arc (2 triangles per segment). */
+function leaf(base, dir, up, len, width, n, col, droop = 0.3) {
+  const pts = [], ws = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    pts.push(base.clone().addScaledVector(dir, t * len).addScaledVector(up, -droop * len * t * t));
+    ws.push(width * Math.sin(Math.PI * Math.min(1, 0.15 + t * 0.95)) + width * 0.05);
+  }
+  let side = new THREE.Vector3().crossVectors(dir, up);
+  if (side.lengthSq() < 1e-6) side.set(1, 0, 0);
+  return ribbon(pts, ws, side.normalize(), typeof col === 'function' ? col : () => col);
+}
+
+/** Beach spinifex (Spinifex sericeus): silvery, hairy grass tussocks on long runners, the foredune's sand-binder. */
+export function spinifex(seed) {
+  const rnd = mulberry32(seed);
+  const parts = [];
+  const silver = [0.66, 0.7, 0.6], green = [0.42, 0.5, 0.36];
+  const tufts = 8 + Math.floor(rnd() * 5);
+  for (let k = 0; k < tufts; k++) {
+    const c = new THREE.Vector3((rnd() - 0.5) * 2.8, 0, (rnd() - 0.5) * 2.8);
+    const blades = seg(11, 4);
+    for (let i = 0; i < blades; i++) {
+      const a = rnd() * Math.PI * 2, lean = 0.7 + rnd() * 1.1; // splayed, half-prostrate leaves form a low mat
+      const dir = new THREE.Vector3(Math.cos(a) * lean, 1, Math.sin(a) * lean).normalize();
+      const tone = 0.85 + rnd() * 0.25;
+      parts.push(leaf(c, dir, UP, 0.25 + rnd() * 0.25, 0.014, seg(3, 2), t => lerp3(green, silver, t).map(v => v * tone), 0.45));
+    }
+    // Female seed heads: spiky balls that roll along the beach in the wind.
+    if (rnd() < 0.35) {
+      const h = c.clone().add(new THREE.Vector3(0, 0.25 + rnd() * 0.15, 0));
+      for (let s = 0; s < seg(12, 5); s++) {
+        const d = new THREE.Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalize();
+        parts.push(tube(h, h.clone().addScaledVector(d, 0.1), 0.004, 0.001, 3, [0.72, 0.68, 0.5], [0.8, 0.76, 0.6]));
+      }
+    }
+  }
+  // Runners: stolons creeping across the sand between tussocks.
+  for (let r = 0; r < 3; r++) {
+    const a = rnd() * Math.PI * 2, L = 0.8 + rnd() * 0.8;
+    const p0 = new THREE.Vector3(0, 0.01, 0), p1 = new THREE.Vector3(Math.cos(a) * L, 0.02, Math.sin(a) * L);
+    parts.push(tube(p0, p1, 0.004, 0.003, 3, [0.78, 0.7, 0.52], [0.78, 0.7, 0.52])); // runners: thin, sand-dusted
+  }
+  return mergeGeometries(parts);
+}
+
+/** Pigface (Carpobrotus glaucescens): mats of fleshy, three-sided leaves with magenta flowers. */
+export function pigface(seed) {
+  const rnd = mulberry32(seed);
+  const parts = [];
+  const n = seg(26, 8);
+  for (let i = 0; i < n; i++) {
+    const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * 0.7;
+    const base = new THREE.Vector3(Math.cos(a) * r, 0.02, Math.sin(a) * r);
+    const dir = new THREE.Vector3(Math.cos(a + (rnd() - 0.5)), 0.5 + rnd() * 0.6, Math.sin(a + (rnd() - 0.5))).normalize();
+    const L = 0.08 + rnd() * 0.06;
+    const g = new THREE.CylinderGeometry(0.004, 0.012, L, 3, 1); // triangular cross-section, fleshy
+    g.translate(0, L / 2, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, dir)); g.translate(base.x, base.y, base.z);
+    const red = rnd() < 0.3;
+    colorize(g, v => (v.y - base.y) / L > 0.7 && red ? [0.55, 0.25, 0.22] : [0.32, 0.48, 0.24]);
+    parts.push(strip(g));
+  }
+  for (let f = 0; f < 3 + Math.floor(rnd() * 4); f++) {
+    const a = rnd() * Math.PI * 2, r = rnd() * 0.6;
+    const c = new THREE.Vector3(Math.cos(a) * r, 0.09, Math.sin(a) * r);
+    const petals = seg(14, 6);
+    for (let p = 0; p < petals; p++) {
+      const pa = (p / petals) * Math.PI * 2;
+      parts.push(leaf(c, new THREE.Vector3(Math.cos(pa), 0.35, Math.sin(pa)).normalize(), UP, 0.035, 0.008, 2, [0.86, 0.22, 0.58], 0));
+    }
+    const ctr = new THREE.SphereGeometry(0.012, 5, 3); ctr.translate(c.x, c.y + 0.008, c.z); colorize(ctr, () => [0.95, 0.82, 0.4]); parts.push(strip(ctr));
+  }
+  return mergeGeometries(parts);
+}
+
+/** Coast banksia (Banksia integrifolia): gnarled grey trunk, leathery leaves, pale yellow flower spikes and old grey cones. */
+export function coastBanksia(seed) {
+  const rnd = mulberry32(seed);
+  const parts = [];
+  const bark = [0.42, 0.39, 0.35], barkDark = [0.3, 0.28, 0.25];
+  const tips = [];
+  const grow = (p, dir, len, rad, depth) => {
+    const mid = p.clone().addScaledVector(dir, len * 0.5).add(new THREE.Vector3((rnd() - 0.5) * len * 0.15, 0, (rnd() - 0.5) * len * 0.15));
+    const end = p.clone().addScaledVector(dir, len);
+    parts.push(tube(p, mid, rad, rad * 0.88, 7, barkDark, bark), tube(mid, end, rad * 0.88, rad * 0.72, 7, bark, bark));
+    if (depth <= 0) { tips.push({ p: end, dir }); return; }
+    const k = depth > 2 ? 2 : 2 + (rnd() < 0.5 ? 1 : 0);
+    for (let i = 0; i < k; i++) {
+      const nd = dir.clone().applyAxisAngle(new THREE.Vector3(rnd() - 0.5, 0, rnd() - 0.5).normalize(), 0.45 + rnd() * 0.5);
+      nd.y = Math.max(0.2, nd.y); nd.normalize();
+      grow(end, nd, len * (0.62 + rnd() * 0.2), rad * 0.68, depth - 1);
+    }
+  };
+  const H = 1.4 + rnd() * 1.2;
+  grow(new THREE.Vector3(), new THREE.Vector3((rnd() - 0.5) * 0.3, 1, (rnd() - 0.5) * 0.3).normalize(), H, 0.13 + rnd() * 0.05, 4);
+  for (const { p, dir } of tips) {
+    // Leaf whorl: dark green upper surfaces, silvery-white undersides catch the light at the leaf edges.
+    const nL = seg(12, 5);
+    for (let i = 0; i < nL; i++) {
+      const a = (i / nL) * Math.PI * 2 + rnd() * 0.5;
+      const d = new THREE.Vector3(Math.cos(a), 0.25 + rnd() * 0.5, Math.sin(a)).add(dir.clone().multiplyScalar(0.6)).normalize();
+      const tone = 0.8 + rnd() * 0.3;
+      parts.push(leaf(p, d, UP, 0.12 + rnd() * 0.06, 0.022, seg(3, 2), t => lerp3([0.2, 0.32, 0.18], [0.58, 0.62, 0.55], t * 0.5).map(v => v * tone), 0.25));
+    }
+    if (rnd() < 0.3) {
+      // Flower spike (pale yellow) or old grey follicle cone.
+      const old = rnd() < 0.5;
+      const g = new THREE.CylinderGeometry(0.028, 0.032, 0.11, seg(7, 4), 1);
+      g.translate(0, 0.055, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, dir)); g.translate(p.x, p.y, p.z);
+      colorize(g, () => old ? [0.36, 0.33, 0.3] : [0.9, 0.85, 0.5]);
+      parts.push(strip(g));
+    }
+  }
+  return mergeGeometries(parts);
+}
+
+/** Coastal wattle (Acacia longifolia subsp. sophorae): dense, low, wind-pruned shrub with phyllodes and yellow rod flowers (late winter–spring). */
+export function coastalWattle(seed) {
+  const rnd = mulberry32(seed);
+  const parts = [];
+  const stems = 5 + Math.floor(rnd() * 4);
+  for (let s = 0; s < stems; s++) {
+    const a = rnd() * Math.PI * 2, lean = 0.5 + rnd() * 0.8;
+    const dir = new THREE.Vector3(Math.cos(a) * lean, 1, Math.sin(a) * lean).normalize();
+    const L = 0.6 + rnd() * 0.7;
+    const end = dir.clone().multiplyScalar(L);
+    parts.push(tube(new THREE.Vector3(), end, 0.03, 0.012, 5, [0.35, 0.3, 0.24], [0.4, 0.36, 0.28]));
+    const nL = seg(16, 6);
+    for (let i = 0; i < nL; i++) {
+      const t = 0.35 + 0.65 * (i / nL);
+      const p = dir.clone().multiplyScalar(L * t);
+      const d = new THREE.Vector3(rnd() - 0.5, rnd() * 0.6 + 0.1, rnd() - 0.5).normalize();
+      const tone = 0.8 + rnd() * 0.3;
+      parts.push(leaf(p, d, UP, 0.1 + rnd() * 0.05, 0.016, 2, [0.3 * tone, 0.42 * tone, 0.22 * tone], 0.1));
+      if (rnd() < 0.18) {
+        const g = new THREE.CylinderGeometry(0.008, 0.008, 0.045, 4, 1);
+        g.translate(0, 0.0225, 0); g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(UP, d)); g.translate(p.x, p.y, p.z);
+        colorize(g, () => [0.98, 0.84, 0.18]); parts.push(strip(g));
+      }
+    }
+  }
+  return mergeGeometries(parts);
+}
+
+/** Neptune's necklace (Hormosira banksii): chains of olive-brown, water-filled beads draped over the mid-shore rock platform. */
+export function neptunesNecklace(seed) {
+  const rnd = mulberry32(seed);
+  const parts = [];
+  const chains = 5 + Math.floor(rnd() * 3);
+  for (let c = 0; c < chains; c++) {
+    let p = new THREE.Vector3((rnd() - 0.5) * 0.3, 0.01, (rnd() - 0.5) * 0.3);
+    let a = rnd() * Math.PI * 2;
+    const beads = 5 + Math.floor(rnd() * 6);
+    for (let b = 0; b < beads; b++) {
+      const r = 0.008 + 0.006 * Math.sin((b / beads) * Math.PI) + rnd() * 0.002;
+      const g = new THREE.SphereGeometry(r, seg(5, 3), seg(3, 2)); // tiny beads: a few faces each is plenty
+      g.scale(1.25, 1, 1); g.rotateY(-a); g.translate(p.x, p.y + r * 0.8, p.z);
+      const tone = 0.85 + rnd() * 0.3, y0 = p.y;
+      colorize(g, v => [0.42 * tone, 0.36 * tone, 0.12 * tone].map(x => x * (0.75 + 0.25 * Math.max(0, (v.y - y0) / r))));
+      parts.push(strip(g));
+      p = p.clone().add(new THREE.Vector3(Math.cos(a) * r * 2.3, 0, Math.sin(a) * r * 2.3));
+      a += (rnd() - 0.5) * 0.9;
+    }
+  }
+  return mergeGeometries(parts);
+}

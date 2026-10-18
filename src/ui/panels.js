@@ -51,7 +51,7 @@ export class Panels {
           <h2>${esc(sp.common)} <span class="status ${esc(sp.statusCode)}" title="IUCN Red List">${esc(sp.status)}</span></h2>
           <div class="sci">${esc(sp.sci)}</div>
           <div class="facts">
-            <div><b>Size</b>${esc(sp.size)}</div><div><b>Depth</b>${esc(sp.depth)}</div>
+            <div><b>Size</b>${esc(sp.size)}</div><div><b>${sp.habitat ? 'Where' : 'Depth'}</b>${esc(sp.depth)}</div>
             <div><b>Feeding</b>${esc(sp.feeding)}</div><div><b>Trophic level</b>${esc(sp.trophic)}</div>
           </div>
         </div>

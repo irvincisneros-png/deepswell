@@ -17,6 +17,7 @@ import { World } from './world/world.js';
 import { Surfer } from './surf/surfer.js';
 import { SurfSession } from './surf/surfSession.js';
 import { Diver, buoyancyAt, pressureAt } from './dive/diver.js';
+import { Walker, SWIM_DEPTH } from './land/walker.js';
 import { evaluatePhoto, snapshot } from './learn/photo.js';
 import { Panels, esc } from './ui/panels.js';
 import { ECOSYSTEMS, PLANNED, ecoById } from './ecosystems/index.js';
@@ -50,6 +51,7 @@ class Game {
     this.world = new World(this.scene, this.renderer, this.env, this.fx, this.quality);
     this.surfer = new Surfer(this.scene);
     this.diver = new Diver(this.camera, this.input, this.settings);
+    this.walker = new Walker(this.camera, this.input, this.settings);
     this.mode = 'loading';
     this.eco = ecoById(params.get('eco')) ?? ECOSYSTEMS[0];
     this.activeMission = null;
@@ -59,7 +61,7 @@ class Game {
     this.setupComposer();
     addEventListener('resize', () => this.resize());
     this.resize();
-    this.input.onLockChange = locked => $('#click-to-play').classList.toggle('hidden', locked || this.mode !== 'dive' || this.panels.isOpen);
+    this.input.onLockChange = locked => $('#click-to-play').classList.toggle('hidden', locked || !this.firstPerson || this.panels.isOpen);
     this.input.onLockFail = () => { $('#click-to-play').classList.add('hidden'); this.toast('Mouse capture is blocked here — drag with the left mouse button to look around; click to use the camera or open cards.'); };
     this.bindMenu();
     this.bindKeys();
@@ -113,6 +115,7 @@ class Game {
     cards.querySelectorAll('.eco-card:not([disabled])').forEach(b => b.onclick = () => this.switchEco(b.dataset.id));
     $('#btn-surf').onclick = () => { this.audio.start(); this.startSurf(); };
     $('#btn-dive').onclick = () => { this.audio.start(); this.startDive(null); };
+    $('#btn-beach').onclick = () => { this.audio.start(); this.startLand(null); };
     $('#btn-journal').onclick = () => this.panels.journal(this.eco, ECOSYSTEMS, this.progress);
     $('#btn-missions').onclick = () => this.panels.missions(this.eco, this.progress, m => this.trackMission(m));
     $('#btn-settings').onclick = () => this.openSettings();
@@ -138,6 +141,7 @@ class Game {
   }
   enterMenu() {
     this.mode = 'menu';
+    document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
     this.setupVehicle();
     this.exitCameraMode();
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
@@ -148,6 +152,7 @@ class Game {
     this.menuWave = null; this.menuT = 0;
     $('#btn-surf').textContent = this.eco.surf ? (this.activeMission ? 'Start mission (surf first)' : 'Surf & dive') : 'Surf & dive';
     $('#btn-surf').disabled = !this.eco.surf;
+    $('#btn-beach').classList.toggle('hidden', !this.eco.land);
     $('#btn-dive').textContent = this.activeMission && this.activeMission.goal.type !== 'surf-ride' ? 'Start mission (dive)' : (this.eco.diveLabel ?? 'Dive only');
     this.updateProgressSummary();
   }
@@ -159,6 +164,7 @@ class Game {
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     this.surfCount = (this.surfCount ?? 0) + 1;
     this.mode = 'surf';
+    document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
     $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');
     $('#surf-hud').classList.remove('hidden'); $('#dive-hud').classList.add('hidden');
     $('#site-name').textContent = `${this.eco.name} · ${this.eco.surf.breakName ?? 'Outer reef break'}`;
@@ -185,8 +191,9 @@ class Game {
     this.startDive(spawn, breath, r.kind === 'wipeout');
     this.panels.result(r, () => this.lockSoon(), () => this.startSurf());
   }
-  startDive(spawn, breath = 1, wipeout = false) {
-    this.mode = 'dive';
+  startDive(spawn, breath = 1, wipeout = false, quiet = false) {
+    this.mode = 'dive'; this.modeSince = this.time;
+    document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
     $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');
     $('#surf-hud').classList.add('hidden'); $('#dive-hud').classList.remove('hidden');
     $('#site-name').textContent = `${this.eco.name} · ${this.eco.place}`;
@@ -208,12 +215,14 @@ class Game {
       : [['WASD', 'swim'], ['Space/C', 'up/down'], ['Shift', 'kick hard'], ['Q', 'equalise'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['L', 'lab'], ['E', this.eco.surf ? 'board' : 'boat'], ['P', 'pause']]);
     document.body.classList.toggle('sub-mode', sub);
     if (wipeout) { this.flash(); this.fx.bubbleBurst(spawn, 80, 1.5, 0.08); }
-    else this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
+    else if (!quiet) this.toast(this.eco.diveIntro ?? 'Breathe up at the surface, then look down and swim (W) to duck-dive. Click to look around.');
     if (!this.panels.isOpen) this.lockSoon();
   }
-  lockSoon() { if (this.mode === 'dive') { $('#click-to-play').classList.toggle('hidden', this.input.locked || this.input.dragLook); } }
+  /** Dive and land are first-person modes (mouse look, crosshair, camera tool, cards). */
+  get firstPerson() { return this.mode === 'dive' || this.mode === 'land'; }
+  lockSoon() { if (this.firstPerson) { $('#click-to-play').classList.toggle('hidden', this.input.locked || this.input.dragLook); } }
   onPanelClosed() {
-    if (this.mode === 'dive') this.lockSoon();
+    if (this.firstPerson) this.lockSoon();
     if (this.mode === 'menu') this.updateProgressSummary();
   }
 
@@ -223,12 +232,12 @@ class Game {
       if (this.panels.isOpen || this.mode === 'loading' || this.mode === 'menu') return;
       const c = e.code;
       if (c === 'KeyP') this.pauseMenu();
-      if (this.mode !== 'dive') return;
+      if (!this.firstPerson) return;
       if (c === 'KeyF') this.toggleCamera();
       if (c === 'KeyJ') this.panels.journal(this.eco, ECOSYSTEMS, this.progress);
       if (c === 'KeyM') this.openMissions();
       if (c === 'KeyL') this.openLab();
-      if (c === 'KeyE') this.tryBoard();
+      if (c === 'KeyE') this.mode === 'land' ? this.tryBoardFromBeach() : this.tryBoard();
       if (c === 'KeyT' && this.subLights) { this.audio.play('lightsClunk'); this.subLights.visible = !this.subLights.visible; this.toast(this.subLights.visible ? 'Lights on.' : 'Lights off — let your eyes adjust and watch for living light.'); }
     });
   }
@@ -286,7 +295,7 @@ class Game {
       const m = o.material;
       if (!o.isMesh || !m || Array.isArray(m) || !m.isMeshStandardMaterial || m.transparent) return;
       o.receiveShadow = true;
-      o.castShadow = o !== this.world.terrain?.mesh; // the big seabed mesh only receives (saves a full terrain draw)
+      o.castShadow = o !== this.world.terrain?.mesh && !o.userData.noShadow; // the big seabed mesh and small ground plants only receive
     });
   }
   ensureBoat() {
@@ -299,6 +308,87 @@ class Game {
     }
     this.boat.visible = true;
     this.boat.position.set(this.eco.boat.x, 0, this.eco.boat.z);
+  }
+  /** The camera-carrying player in first-person modes. */
+  get player() { return this.mode === 'land' ? this.walker : this.diver; }
+
+  // ------------------------------------------------------------------ land (beach, dunes, rock platform)
+  startLand(spawn, yaw, fromWater = false) {
+    const L = this.eco.land;
+    if (!L) return this.startDive(null);
+    this.exitCameraMode();
+    clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
+    this.mode = 'land'; this.modeSince = this.time;
+    document.body.classList.add('land-mode'); document.body.classList.remove('sub-mode');
+    $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');
+    $('#surf-hud').classList.add('hidden'); $('#dive-hud').classList.remove('hidden');
+    $('#site-name').textContent = `${this.eco.name} · beach & rock platform`;
+    this.surfSession = null; this.diver.active = false;
+    if (!spawn) spawn = new THREE.Vector3(L.spawn.x, this.world.groundAt(L.spawn.x, L.spawn.z), L.spawn.z);
+    this.walker.spawn(spawn, yaw ?? L.spawn.yaw);
+    // Your board waits on the sand above the swash.
+    if (this.eco.surf) {
+      this.boardPos.set(L.board.x, this.world.groundAt(L.board.x, L.board.z), L.board.z);
+      this.surfer.root.visible = true; this.surfer.rider.visible = false; this.surfer.reset();
+      this.surfer.root.position.copy(this.boardPos).add(new THREE.Vector3(0, 0.05, 0));
+      this.surfer.root.rotation.set(0, 0.35, 0.05);
+    }
+    this.input.wantLock = true;
+    this.setKeys([['WASD', 'walk'], ['Shift', 'run'], ['Space', 'jump'], ['F', 'camera'], ['Click', 'info'], ['J', 'journal'], ['M', 'missions'], ['E', 'board'], ['P', 'pause']]);
+    if (fromWater) this.toast('You find your feet and wade ashore.');
+    else this.toast(L.intro);
+    if (!this.panels.isOpen) this.lockSoon();
+  }
+  updateLand(dt, paused) {
+    const w = this.walker;
+    if (!paused) {
+      w.update(dt, this.world, this.eco.land.bounds);
+      for (const c of this.input.takeClicks()) {
+        if (!this.input.lookActive) continue;
+        if (c.button === 2) { this.toggleCamera(); continue; }
+        if (this.cameraMode) this.takePhoto();
+        else {
+          const hit = this.world.pick(this.camera.position, w.lookDir);
+          if (hit) { const sp = this.eco.speciesInfo.find(s => s.id === hit.id); if (sp) this.panels.card(sp, this.progress.journal[`${this.eco.id}:${sp.id}`]); }
+        }
+      }
+    }
+    for (const e of w.takeEvents()) {
+      if (e === 'step') this.audio.play('footstep');
+      else if (e === 'stepWet') this.audio.play('footstep', { wet: true });
+      else if (e === 'splash') this.audio.play('smallSplash');
+      else if (e === 'swim' && !paused && this.time - (this.modeSince ?? 0) > 2) {
+        // Chest-deep: start swimming at the surface (breath-hold diving from here on).
+        this.startDive(new THREE.Vector3(w.pos.x, -0.1, w.pos.z), 1, false, true);
+        this.diver.yaw = w.yaw; this.diver.pitch = Math.min(0, w.pitch);
+        this.toast('You\'re out of your depth — swimming now. Duck-dive by looking down and kicking (W). Swim back into the shallows to walk ashore.');
+        return;
+      }
+    }
+    this.world.waveMesh.update(null, this.time);
+    if (this.boat?.visible) { const b = this.boat; b.position.y = swellHeight(b.position.x, b.position.z, this.time) * 0.8 - 0.1; }
+    this.roar = 0;
+    const nearBoard = this.eco.surf && Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z) < 2.6;
+    $('#prompt').innerHTML = nearBoard ? this.hint('Press <kbd>E</kbd> to pick up your board and paddle out') : '';
+    if (this.frame % 5 === 0 && !paused) {
+      const hit = this.input.lookActive && !this.cameraMode ? this.world.pick(this.camera.position, w.lookDir, 12) : null;
+      const lbl = $('#target-label');
+      if (hit) { const sp = this.eco.speciesInfo.find(s => s.id === hit.id); lbl.innerHTML = sp ? `${esc(sp.common)} <i>· click for info</i>` : ''; lbl.classList.toggle('show', !!sp); }
+      else lbl.classList.remove('show');
+      if (this.cameraMode) {
+        const r = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: w.speed });
+        const sp = r.subject && this.eco.speciesInfo.find(s => s.id === r.subject.id);
+        $('#vf-subject').textContent = sp ? `${sp.common} ${'★'.repeat(r.quality)}${'☆'.repeat(3 - r.quality)}` : 'no subject';
+      }
+    }
+  }
+  tryBoardFromBeach() {
+    if (!this.eco.surf) return;
+    const w = this.walker, d = Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z);
+    if (d > 2.6) { this.toast(`Your board is on the sand ${Math.round(d)} m away. Walk over to it and press E.`); return; }
+    $('#prompt').innerHTML = '';
+    this.toast('You wax up, walk in through the shorebreak and paddle out to the lineup…');
+    this.startSurf();
   }
   tryBoard() {
     if (this.eco.vehicle === 'sub') { this.toast('Surfacing the submersible — back to the research ship.'); setTimeout(() => this.enterMenu(), 600); return; }
@@ -388,7 +478,7 @@ class Game {
     return this.world.photoCandidates(this.camera.position).filter(c => known.has(c.id));
   }
   takePhoto() {
-    const res = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: this.diver.speed });
+    const res = evaluatePhoto(this.camera, this.photoCandidates(), { groundAt: (x, z) => this.world.groundAt(x, z), diverSpeed: this.player.speed });
     this.audio.play('shutter');
     $('#fx-flash').style.transition = 'none'; $('#fx-flash').style.opacity = 0.35;
     requestAnimationFrame(() => { $('#fx-flash').style.transition = 'opacity 0.5s'; $('#fx-flash').style.opacity = 0; });
@@ -475,10 +565,12 @@ class Game {
     globalUniforms.uTime.value = this.time;
     this.world.time = this.time;
     const paused = this.panels.isOpen;
-    this.input.gameplay = !paused && (this.mode === 'surf' || this.mode === 'dive');
+    this.input.gameplay = !paused && (this.mode === 'surf' || this.firstPerson);
     if (this.mode === 'menu') this.updateMenu(dt);
     else if (this.mode === 'surf' && !paused) this.updateSurf(dt);
     else if (this.mode === 'dive') this.updateDive(dt, paused);
+    else if (this.mode === 'land') this.updateLand(dt, paused);
+    if (this.world.land && this.mode !== 'surf') this.world.land.update(dt, this.mode === 'land' ? this.walker : this.mode === 'dive' ? this.diver : null);
     if (this.mode === 'surf' && paused) this.surfSession?.updateCamera(0);
     // Life keeps moving even with panels open.
     if (this.world.life && this.mode !== 'surf') this.world.life.update(dt, this.mode === 'dive' ? this.diver : null);
@@ -582,6 +674,11 @@ class Game {
       if (d.breath <= 0 && !d.blackout) { d.blackout = true; d.events.push('blackout'); this.panels.close(); }
     }
     for (const e of d.takeEvents()) this.onDiverEvent(e);
+    // Swim into the shallows of a site with a beach: stand up and wade ashore.
+    if (this.eco.land && !paused && d.depthNow < 0.6 && d.pos.z > 70 && this.time - (this.modeSince ?? 0) > 2) {
+      const water = -this.world.groundAt(d.pos.x, d.pos.z); // still-water depth
+      if (water < SWIM_DEPTH - 0.4) { this.startLand(new THREE.Vector3(d.pos.x, this.world.groundAt(d.pos.x, d.pos.z), d.pos.z), d.yaw, true); return; }
+    }
     // Board bobbing at the surface
     if (this.eco.surf) {
       const bx = this.boardPos.x, bz = this.boardPos.z;

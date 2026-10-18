@@ -8,12 +8,48 @@ import { addGenerator } from '../world/reef.js';
 import { registerBehaviour, registerLook } from '../life/life.js';
 import { paint as P } from '../life/looks.js';
 import * as FL from '../world/flora.js';
+import * as FO from '../world/foliage.js';
 import { rock } from '../world/coral.js';
 
 const noise = makeNoise(77);
 const BARREN = { x: 28, z: -28, r: 16 };
 const BOULDERS = [[-30, -40, 7, 3], [10, -50, 8, 3.5], [-55, -20, 6, 2.5], [45, -45, 7, 3], [-10, -15, 6, 2.2], [30, -5, 5, 1.8]];
 
+// ---- The shore (z > 70): beach, foredune, hind-dune scrub, and an Illawarra-style rock platform with rock pools
+// at the eastern end below a sandstone bluff. Sea level is y = 0 (a low-ish tide, so the pools are exposed).
+const PLATFORM = { x0: 50, z0: 66, z1: 114 };
+export const POOLS = [[62, 76, 2.2], [71, 85, 3.0], [83, 73, 1.8], [90, 91, 2.6], [101, 79, 2.1], [110, 96, 3.2], [79, 101, 1.7], [121, 84, 2.5], [96, 105, 1.9], [132, 99, 2.8], [140, 80, 2.2]];
+/** 0..1: how much of the rock platform is at (x, z). */
+export function platformMask(x, z) {
+  return smoothstep(PLATFORM.x0 - 6, PLATFORM.x0 + 6, x + noise.n2(z * 0.05, 3) * 6) * smoothstep(PLATFORM.z0 - 3, PLATFORM.z0 + 2, z + noise.n2(x * 0.08, 1) * 3);
+}
+/** Beach and dunes: height along the shore-normal axis z (x adds dune hummocks and beach cusps). */
+function shoreHeight(x, z) {
+  let h;
+  if (z < 84) h = lerp(-1.2, 0, smoothstep(70, 84, z));
+  else if (z < 102) h = lerp(0, 2.1, (z - 84) / 18);                 // beach face (about 1:9)
+  else if (z < 116) h = lerp(2.1, 2.7, (z - 102) / 14);              // dry upper beach
+  else if (z < 128) h = lerp(2.7, 7, smoothstep(116, 128, z));       // foredune
+  else if (z < 140) h = lerp(7, 4.6, smoothstep(128, 140, z));       // swale
+  else h = 4.6 + smoothstep(140, 160, z) * 1.5;                      // hind dune
+  h += smoothstep(186, 200, z) * 10;                                 // rising ground at the edge of the map
+  // Beach cusps on the swash zone; wind-sculpted hummocks and blowouts on the dunes.
+  h += Math.sin(x * 0.26) * 0.12 * smoothstep(84, 88, z) * (1 - smoothstep(94, 100, z));
+  const dune = smoothstep(112, 124, z);
+  h += dune * (noise.fbm2(x * 0.035, z * 0.05, 4) * 2.6 + noise.fbm2(x * 0.15, z * 0.15, 2) * 0.45);
+  return h;
+}
+function platformHeight(x, z) {
+  // Gently rising platform with stepped ledges, gutters and a seaward drop; sandstone bluff behind it.
+  let h = 0.45 + 0.45 * smoothstep(66, 110, z);
+  const ledge = noise.fbm2(x * 0.06, z * 0.06, 3);
+  h += Math.round(ledge * 3) / 3 * 0.28 + noise.fbm2(x * 0.6, z * 0.6, 2) * 0.05;
+  h -= Math.pow(Math.max(0, Math.sin(x * 0.21 + z * 0.05 + noise.n2(x * 0.05, z * 0.05) * 2)), 12) * 0.5; // gutters
+  h -= (1 - smoothstep(64, 70, z)) * 3.2;                           // seaward edge drops into the swell
+  for (const [px, pz, r] of POOLS) { const d = Math.hypot(x - px, z - pz) / (r * (1 + 0.18 * noise.n2(x * 0.4, z * 0.4))); if (d < 1) h -= 1.45 * (1 - d * d); }
+  h += smoothstep(110, 124, z + noise.n2(x * 0.07, 7) * 4) * 13 + noise.fbm2(x * 0.2, z * 0.2, 2) * smoothstep(112, 120, z) * 1.5; // bluff
+  return h;
+}
 function baseProfile(z) {
   if (z < -60) return lerp(-14, -18, smoothstep(-60, -95, z));
   if (z < 0) return lerp(-14, -5, smoothstep(-60, 0, z));        // boulder reef rising toward shore
@@ -34,9 +70,15 @@ export function heightAt(x, z) {
   h -= reef * Math.pow(Math.max(0, Math.sin(x * 0.18 + noise.n2(x * 0.03, z * 0.03) * 2)), 6) * 1.6;
   h += noise.fbm2(x * 0.05, z * 0.05, 3) * 0.5;
   for (const [bx, bz, r, ht] of BOULDERS) { const d = Math.hypot(x - bx, z - bz) / r; if (d < 2) h += ht * Math.exp(-d * d * 2) * (0.8 + 0.4 * noise.n2(x * 0.5, z * 0.5)); }
-  return Math.min(h, z > 70 ? 3 : -1.2);
+  h = Math.min(h, -1.2);
+  if (z < 66) return h;
+  const shore = shoreHeight(x, z), k = smoothstep(66, 76, z);
+  const beach = lerp(h, shore, k);
+  const pm = platformMask(x, z);
+  return pm > 0 ? lerp(beach, platformHeight(x, z), pm) : beach;
 }
 export function colorAt(x, z, h, slope) {
+  if (z > 66 && h > -1.1) return shoreColor(x, z, h, slope);
   const reef = reefiness(x, z);
   const n = noise.n2(x * 0.3, z * 0.3);
   const sand = [0.7 + n * 0.04, 0.66 + n * 0.04, 0.55];
@@ -46,6 +88,34 @@ export function colorAt(x, z, h, slope) {
   const t = clamp(reef * 1.3 - slope * 0.3, 0, 1);
   return [lerp(sand[0], rockC[0], t), lerp(sand[1], rockC[1], t), lerp(sand[2], rockC[2], t)];
 }
+function shoreColor(x, z, h, slope) {
+  const n = noise.n2(x * 0.3, z * 0.3), n2 = noise.n2(x * 2.1, z * 2.1);
+  const mix3 = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
+  // Sand: dark and wet in the swash zone, pale and dry up the beach, vegetated and darker on the dunes.
+  // Warm quartz sand (Illawarra beaches are golden), darker where wet.
+  const wet = [0.5 + n * 0.03, 0.4 + n * 0.03, 0.27], dry = [0.82 + n * 0.03, 0.67 + n * 0.03, 0.45]; // real dry sand reflects ~40–50%
+  let c = mix3(wet, dry, smoothstep(0.35, 1.1, h));
+  const cover = Math.max(0, Math.min(1, 0.55 + 0.6 * noise.fbm2(x * 0.08, z * 0.08, 3)));        // patchy plant cover
+  c = mix3(c, [0.5 + n * 0.05, 0.54, 0.34], smoothstep(114, 124, z) * cover * 0.85);            // spinifex-covered foredune
+  c = mix3(c, [0.27 + n * 0.04, 0.31 + n * 0.04, 0.18], smoothstep(130, 142, z) * (0.6 + 0.35 * cover)); // hind-dune scrub floor
+  const pm = platformMask(x, z);
+  if (pm > 0.01) {
+    // Rock platform zonation: pink coralline + green algae in pools, olive turf low, barnacle-grey mid, bare dry rock high.
+    let r;
+    if (h < -0.05) r = n2 > 0 ? [0.62, 0.38, 0.44] : [0.3, 0.42, 0.22];                         // pools: pink coralline, green algae
+    else if (h < 0.5) r = mix3([0.22, 0.26, 0.12], [0.32, 0.3, 0.2], smoothstep(-0.05, 0.5, h) * (0.6 + 0.4 * n2)); // low shore turf
+    else if (h < 0.95) r = mix3([0.3, 0.26, 0.2], [0.42, 0.38, 0.31], 0.5 + 0.5 * n2);       // mid shore: barnacle speckle
+    else r = [0.4 + n * 0.05, 0.33 + n * 0.04, 0.25];                                          // dry upper platform (dark weathered rock)
+    if (slope > 0.35 && h > 1.2) r = [0.68 + n * 0.06, 0.5 + n * 0.05, 0.33];                   // orange-brown sandstone bluff
+    c = mix3(c, r, Math.min(1, pm * 1.2));
+  }
+  return c;
+}
+/** Substrate for the terrain shader: 1 = rock (platform, bluff, reef boulders), 0 = sand. */
+export function rockAt(x, z, h, slope) {
+  if (z > 64) return Math.min(1, platformMask(x, z) * 1.3 + (slope > 0.5 && h > 2 ? 0.6 : 0));
+  return Math.min(1, reefiness(x, z) * 1.1 + Math.max(0, slope - 0.4));
+}
 const inBarren = (x, z) => Math.hypot(x - BARREN.x, z - BARREN.z) < BARREN.r;
 
 // ---- Habitat-forming plants and sponges
@@ -53,6 +123,15 @@ addGenerator('kelp', { fn: FL.kelp, variants: 5, scale: [1.0, 1.7], radius: 0.7,
 addGenerator('crayweed', { fn: FL.crayweed, variants: 3, scale: [0.9, 1.4], radius: 0.6, sink: 0.02, rough: 0.6, sway: 0.12, cluster: 6, bleaches: false, as: 'crayweed', detailScale: 12, sat: 1.1, transl: 0.5, doubleSide: true, soft: true });
 addGenerator('fingersponge', { fn: FL.fingerSponge, variants: 3, scale: [0.8, 1.6], radius: 0.35, sink: 0.02, rough: 0.9, bleaches: false, as: 'spongegarden', cluster: 4 });
 addGenerator('vasesponge', { fn: s => FL.vaseSponge(s, { colors: [[0.9, 0.6, 0.2], [0.8, 0.4, 0.3], [0.7, 0.65, 0.5]] }), variants: 3, scale: [0.8, 1.5], radius: 0.35, sink: 0.02, rough: 0.9, bleaches: false, as: 'spongegarden' });
+// ---- Beach, dune and rock-platform plants (placed by height and region, not by reefiness)
+const LANDX = { xMin: -170, xMax: 160 };
+const notPlatform = (x, z) => 1 - platformMask(x, z);
+addGenerator('spinifex', { fn: FO.spinifexPatch, foliage: true, noShadow: true, variants: 3, scale: [0.8, 1.3], radius: 0.45, sink: 0, rough: 0.8, sway: 0.25, cluster: 6, bleaches: false, as: 'spinifex', land: true, soft: true, transl: 0.35, sat: 1, ao: 0.3, minH: 1.9, maxH: 12, region: { ...LANDX, zMin: 104, zMax: 150 } });
+addGenerator('pigface', { fn: FL.pigface, noShadow: true, variants: 2, scale: [0.9, 1.6], radius: 0.4, sink: 0, rough: 0.55, cluster: 5, bleaches: false, as: 'pigface', land: true, soft: true, sat: 1.05, minH: 2.2, maxH: 12, region: { ...LANDX, zMin: 108, zMax: 160 } });
+addGenerator('wattle', { fn: FO.wattleShrub, foliage: true, variants: 3, scale: [0.8, 1.5], radius: 1.2, sink: 0.1, rough: 0.75, sway: 0.03, cluster: 6, bleaches: false, as: 'coastalwattle', land: true, soft: true, transl: 0.35, sat: 1.05, ao: 0.6, minH: 2.8, maxH: 16, region: { ...LANDX, zMin: 122, zMax: 198 } });
+addGenerator('heath', { fn: FO.heathShrub, foliage: true, noShadow: true, variants: 2, scale: [0.8, 1.6], radius: 0.6, sink: 0.05, rough: 0.8, sway: 0.03, cluster: 8, bleaches: false, as: 'coastalwattle', land: true, soft: true, transl: 0.3, sat: 1.0, ao: 0.6, minH: 3, maxH: 16, region: { ...LANDX, zMin: 128, zMax: 198 } });
+addGenerator('banksia', { fn: FO.banksiaTree, foliage: true, variants: 4, scale: [0.8, 1.3], radius: 1.1, sink: 0.1, rough: 0.75, sway: 0.004, cluster: 4, bleaches: false, as: 'coastbanksia', land: true, transl: 0.25, sat: 1.0, ao: 0.5, minH: 3.5, maxH: 18, region: { ...LANDX, zMin: 134, zMax: 198 } });
+addGenerator('hormosira', { fn: FL.neptunesNecklace, noShadow: true, variants: 3, scale: [0.8, 1.3], radius: 0.25, sink: 0, rough: 0.35, cluster: 8, bleaches: false, as: 'neptunesnecklace', land: true, soft: true, sat: 1.05, minH: 0.12, maxH: 0.85, region: { xMin: 46, xMax: 150, zMin: 66, zMax: 112 } });
 addGenerator('boulder', { fn: rock, variants: 3, scale: [1.6, 4.2], radius: 1.6, sink: 0.4, rough: 0.95, bleaches: false });
 
 // ---- Looks (procedural fish skins)
@@ -123,10 +202,11 @@ export const rocky = {
   id: 'rocky',
   name: 'NSW rocky reef & kelp',
   place: 'Illawarra, NSW',
-  blurb: 'Cool green water over a boulder reef: kelp forest, blue gropers, weedy seadragons — and an urchin barren.',
-  terrainSize: 320, terrainSegments: 256, seabedKind: 'sand', ripple: 0.35, seed: 77,
-  heightAt, colorAt, reefiness,
+  blurb: 'Cool green water over a boulder reef: kelp forest, blue gropers, weedy seadragons and an urchin barren — plus a beach, dunes and rock pools to explore on foot.',
+  terrainSize: 400, terrainSegments: 320, seabedKind: 'sand', ripple: 0.35, seed: 77,
+  heightAt, colorAt, reefiness, rockAt,
   bounds: { xMin: -75, xMax: 75, zMin: -90, zMax: 60 },
+  diveBounds: { xMin: -75, xMax: 75, zMin: -90, zMax: 92 }, // swim all the way in to the beach
   water: {
     shafts: 0,
     absorb: [0.34, 0.1, 0.09], fog: 0x2d6a6c, fogDeep: 0x0f3236, fogDensity: 0.06,
@@ -138,7 +218,22 @@ export const rocky = {
   surf: { H: 1.7, speed: 5.0, peel: 5.6, peakX: 20, z0: -50, breakZ: 14, endZ: 62, lineupZ: 4, lineupX: 12, breakName: 'Sandbar beach break',
     intro: 'Beach break on a sandbar. Waves come in sets — watch behind you, then paddle (hold W) when one approaches.' },
   diveSpawn: { x: 0, z: -18 },
-  island: { x: 0, z: 290, r: 240, h: 20 }, islandKind: 'headland',
+  island: { x: 0, z: 560, r: 420, h: 34 }, islandKind: 'headland', // the Illawarra escarpment behind the coastal plain
+  land: {
+    spawn: { x: 6, z: 106, yaw: 0 },
+    board: { x: 1.5, z: 97 },
+    bounds: { xMin: -165, xMax: 155, zMin: 55, zMax: 194 }, // seaward edge: you start swimming before reaching it
+    intro: 'You\'re on the beach at Woonona. Explore the shore: the swash zone, the dunes behind you and the rock platform to the east (right). Walk into the water to swim, or pick up your board (E) to paddle out.',
+    life: { ghostcrab: 28, oystercatcher: 4, silvergull: 12, waratahanemone: 70, bluelinedoctopus: 3 },
+    flyingGulls: 6, gullCircle: { x: 5, z: 96 },
+    zones: {
+      ghostcrab: rnd => ({ x: -70 + rnd() * 105, z: 99 + rnd() * 14 }),
+      oystercatcher: (rnd, i) => ({ x: -40 + Math.floor(i / 2) * 35 + rnd() * 3, z: 85.5 + rnd() * 2.5 }),
+      silvergull: rnd => ({ x: -30 + rnd() * 50, z: 89 + rnd() * 12 }),
+      waratahanemone: (rnd, i) => { const [px, pz, r] = POOLS[i % POOLS.length], a = rnd() * 6.283, d = r * (0.75 + rnd() * 0.45); return { x: px + Math.cos(a) * d, z: pz + Math.sin(a) * d }; },
+      bluelinedoctopus: (rnd, i) => { const [px, pz, r] = POOLS[(i * 4 + 1) % POOLS.length]; return { x: px + (rnd() - 0.5) * r * 0.6, z: pz + (rnd() - 0.5) * r * 0.6 }; },
+    },
+  },
   speciesInfo, missions,
   placers: {
     // Urchins are scattered across the whole reef; outside the starting barren they are hidden until a lab run spreads it.
@@ -152,6 +247,13 @@ export const rocky = {
     },
   },
   coral: [
+    // Dense, like a healthy NSW dune system: spinifex mats on the foredune, a wall of wattle and heath behind, banksia woodland.
+    ['spinifex', 4200, (x, z) => notPlatform(x, z) * (z > 112 && z < 134 ? 1 : 0.3)],
+    ['pigface', 900, (x, z) => notPlatform(x, z) * (z > 112 && z < 140 ? 1 : 0.4)],
+    ['wattle', 1900, (x, z) => notPlatform(x, z) * (z > 127 ? 1 : 0.15)],
+    ['heath', 1600, (x, z) => notPlatform(x, z) * (z > 132 ? 1 : 0.1)],
+    ['banksia', 420, (x, z) => notPlatform(x, z) * (z > 138 ? 1 : 0.1)],
+    ['hormosira', 1400, (x, z) => platformMask(x, z)],
     ['kelp', 1300, (x, z, h) => (inBarren(x, z) ? 0 : 1) * (h < -3 && h > -13 ? 1 : 0.1)],
     ['crayweed', 90, (x, z, h) => (inBarren(x, z) ? 0 : 1) * (h > -7 ? 1 : 0.2)],
     ['fingersponge', 70, (x, z, h) => (h < -11 ? 1 : 0.05)],

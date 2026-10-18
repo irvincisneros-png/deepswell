@@ -291,3 +291,4 @@ export function diveBoat() {
   colorize(deck, () => [0.6, 0.5, 0.38]); parts.push(strip(deck));
   return mergeGeometries(parts);
 }
+export { blob, tube, colorize, strip, chain };
