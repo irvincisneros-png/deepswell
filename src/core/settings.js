@@ -35,6 +35,8 @@ export function loadSettings() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { /* storage blocked */ }
   const out = { ...DEFAULTS, ...s };
+  const st = new URLSearchParams(location.search).get('style');
+  if (st) out.style = st; // 'stylised' (Abzû / Alba-like) or 'realistic'
   const q = new URLSearchParams(location.search).get('quality');
   if (q && TIERS[q]) out.quality = q;
   if (!out.quality || !TIERS[out.quality]) out.quality = guessTier();

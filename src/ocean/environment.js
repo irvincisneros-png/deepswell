@@ -135,6 +135,20 @@ export class Environment {
   update(dt, camera, depth) {
     const u = depth > 0 ? 1 : 0;
     globalUniforms.uUnderwater.value = u;
+    if (globalUniforms.uStyle.value > 0.5) {
+      const G = globalUniforms;
+      if (u) {
+        G.uStyleSky.value.copy(this.fogBelow).multiplyScalar(2.2).lerp(new THREE.Color(1, 1, 1), 0.25);
+        G.uStyleGround.value.copy(this.fogBelow).multiplyScalar(0.9);
+        G.uStyleSun.value.set(0.62, 0.6, 0.5).multiplyScalar(Math.min(1, this.sunBase / 2.4));
+        G.uStyleRim.value.copy(this.fogBelow).multiplyScalar(1.6);
+      } else {
+        G.uStyleSky.value.copy(G.uSkyTop.value).lerp(new THREE.Color(1, 1, 1), 0.45).multiplyScalar(0.62);
+        G.uStyleGround.value.set(0.42, 0.36, 0.28);
+        G.uStyleSun.value.set(0.82, 0.74, 0.6).multiplyScalar(Math.min(1, this.sunBase / 2.4));
+        G.uStyleRim.value.set(0.35, 0.42, 0.5);
+      }
+    }
     if (u) {
       const k = Math.min(1, depth / (this.fogDepthScale ?? 25));
       globalUniforms.uFogColor.value.copy(this.fogBelow).lerp(this.fogDeep, k);

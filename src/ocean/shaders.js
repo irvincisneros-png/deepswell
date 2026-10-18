@@ -16,6 +16,12 @@ export const globalUniforms = {
   uFogColor: { value: new THREE.Color(0x0b5d78) },
   uFogDensity: { value: 0.03 },
   uBleach: { value: 0 },  // coral bleaching 0..1 (health lab)
+  // Stylised look (Abzû / Alba-like): soft two-tone light and shade, coloured ambient, rim light.
+  uStyle: { value: 0 },
+  uStyleSky: { value: new THREE.Color(0.55, 0.75, 0.85) },   // ambient from above
+  uStyleGround: { value: new THREE.Color(0.25, 0.3, 0.32) }, // ambient from below
+  uStyleSun: { value: new THREE.Color(0.75, 0.68, 0.55) },   // the lit side
+  uStyleRim: { value: new THREE.Color(0.35, 0.55, 0.6) },
   uDead: { value: 0 },    // algae overgrowth on dead coral 0..1
 };
 
@@ -91,7 +97,7 @@ export function patchUnderwater(material, opts = {}) {
   material.onBeforeCompile = (shader, renderer) => {
     if (prev) prev(shader, renderer);
     shader.uniforms.uWaterCol = globalUniforms.uWaterTint;
-    for (const k of ['uTime', 'uWaterLevel', 'uCaustics', 'uAbsorb', 'uSunDir', 'uBleach', 'uDead', 'uUnderwater']) shader.uniforms[k] = globalUniforms[k];
+    for (const k of ['uTime', 'uWaterLevel', 'uCaustics', 'uAbsorb', 'uSunDir', 'uBleach', 'uDead', 'uUnderwater', 'uStyle', 'uStyleSky', 'uStyleGround', 'uStyleSun', 'uStyleRim']) shader.uniforms[k] = globalUniforms[k];
     shader.uniforms.uSwimLen = { value: opts.swimLength ?? 1 };
     shader.uniforms.uSway = { value: opts.sway ?? 0 };
     let vHead = `varying vec3 vWPos;\nuniform float uTime; uniform float uSwimLen; uniform float uSway;\n`;
@@ -152,7 +158,7 @@ export function patchUnderwater(material, opts = {}) {
       #endif
       vWPos = (modelMatrix * wpw).xyz;`);
 
-    let fHead = `varying vec3 vWPos;\nuniform vec3 uWaterCol; uniform float uTime; uniform float uWaterLevel; uniform float uCaustics; uniform vec3 uAbsorb; uniform vec3 uSunDir; uniform float uBleach; uniform float uDead; uniform float uUnderwater;\n` + causticGLSL + uwFogGLSL;
+    let fHead = `varying vec3 vWPos;\nuniform vec3 uWaterCol; uniform float uTime; uniform float uWaterLevel; uniform float uCaustics; uniform vec3 uAbsorb; uniform vec3 uSunDir; uniform float uBleach; uniform float uDead; uniform float uUnderwater; uniform float uStyle; uniform vec3 uStyleSky; uniform vec3 uStyleGround; uniform vec3 uStyleSun; uniform vec3 uStyleRim;\n` + causticGLSL + uwFogGLSL;
     if (opts.coral) fHead += 'varying float vBleach;\n';
     if (opts.detail) fHead += `varying vec3 vLocal;
       float dHash(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -194,13 +200,24 @@ export function patchUnderwater(material, opts = {}) {
           float n0 = dNoise(q), nx = dNoise(q + vec3(0.35, 0.0, 0.0)), ny = dNoise(q + vec3(0.0, 0.35, 0.0)), nz = dNoise(q + vec3(0.0, 0.0, 0.35));
           vec3 g = vec3(nx - n0, ny - n0, nz - n0);
           vec3 gv = (viewMatrix * vec4(g, 0.0)).xyz;
-          normal = normalize(normal - gv * ${(opts.detailStrength ?? 0.9).toFixed(2)});
+          normal = normalize(normal - gv * ${(opts.detailStrength ?? 0.9).toFixed(2)} * (1.0 - 0.75 * uStyle));
         }`);
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         diffuseColor.rgb *= mix(0.45, 1.0, smoothstep(0.0, 0.22, vLocal.y));
-        diffuseColor.rgb *= 0.85 + 0.3 * dNoise(vWPos * 9.0);`);
+        diffuseColor.rgb *= 1.0 + (0.3 * dNoise(vWPos * 9.0) - 0.15) * (1.0 - 0.7 * uStyle);`);
     }
     shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', `
+      if (uStyle > 0.5) {
+        // Stylised lighting: the sun term (which already includes shadows) becomes a soft two-tone band,
+        // ambient is a sky/ground colour gradient, and a rim light outlines shapes against the background.
+        float lumA = max(dot(diffuseColor.rgb, vec3(0.3333)), 0.02);
+        float direct = dot(reflectedLight.directDiffuse, vec3(0.3333)) / lumA;
+        float lit = smoothstep(0.1, 0.24, direct);
+        vec3 nS = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
+        vec3 amb = mix(uStyleGround, uStyleSky, nS.y * 0.5 + 0.5);
+        float rim = pow(1.0 - abs(dot(nS, normalize(cameraPosition - vWPos))), 3.0);
+        outgoingLight = diffuseColor.rgb * (amb + uStyleSun * lit) + uStyleRim * rim * (0.35 + 0.65 * lit) + totalEmissiveRadiance;
+      }
       {
         float depth = uWaterLevel - vWPos.y;
         ${opts.transl ? `{

@@ -4,6 +4,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { Input } from './core/input.js';
 import { Audio } from './audio/index.js';
 import { TouchControls, detectTouch } from './ui/touch.js';
@@ -35,7 +36,10 @@ class Game {
     const canvas = $('#gl');
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.antialias, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, this.quality.pixelRatio));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.stylised = this.settings.style === 'stylised';
+    // Neutral tone mapping keeps the stylised palette saturated (ACES pushes bright colours toward white).
+    this.renderer.toneMapping = this.stylised ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    globalUniforms.uStyle.value = this.stylised ? 1 : 0;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Soft sun shadows (high/ultra only): grounds coral, rocks and animals on the seabed.
@@ -83,6 +87,22 @@ class Game {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.35, 0.5, 0.86);
     this.composer.addPass(this.bloom);
+    if (this.stylised) {
+      // Colour grade: a little more saturation and contrast, teal-tinted shadows, gentle vignette.
+      this.composer.addPass(new ShaderPass({
+        uniforms: { tDiffuse: { value: null } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform sampler2D tDiffuse; varying vec2 vUv;
+          void main(){
+            vec3 c = texture2D(tDiffuse, vUv).rgb;
+            float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+            c = mix(vec3(l), c, 1.22);
+            c = mix(c * vec3(0.92, 1.0, 1.06), c, smoothstep(0.0, 0.6, l));
+            vec2 d = vUv - 0.5; c *= 1.0 - dot(d, d) * 0.55;
+            gl_FragColor = vec4(max(c, 0.0), 1.0);
+          }`,
+      }));
+    }
     this.composer.addPass(new OutputPass());
   }
   resize() {

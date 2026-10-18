@@ -2,8 +2,8 @@
 // swim, swim back ashore, then pick up the board and paddle out. QUALITY=ultra node tests/playtest/beach.mjs
 import { launch } from './harness.mjs';
 
-const q = process.env.QUALITY ? `&quality=${process.env.QUALITY}` : '';
-const t = await launch({ query: `eco=rocky${q}`, outDir: `playtest-shots/beach${process.env.QUALITY ? '-' + process.env.QUALITY : ''}`, width: 1280, height: 720 });
+const q = (process.env.QUALITY ? `&quality=${process.env.QUALITY}` : "") + (process.env.STYLE ? `&style=${process.env.STYLE}` : "");
+const t = await launch({ query: `eco=rocky${q}`, outDir: `playtest-shots/beach${process.env.QUALITY ? "-" + process.env.QUALITY : ""}${process.env.STYLE ? "-" + process.env.STYLE : ""}`, width: 1280, height: 720 });
 const log = [];
 const st = () => t.page.evaluate(() => { const g = window.__game, w = g.walker, d = g.diver; return { mode: g.mode, w: w.pos.toArray().map(v => +v.toFixed(1)), d: d.pos.toArray().map(v => +v.toFixed(1)), fps: g.fps }; });
 const view = (x, z, yaw, pitch = -0.05) => t.page.evaluate(([x, z, yaw, pitch]) => { const g = window.__game, w = g.walker; w.pos.set(x, g.world.groundAt(x, z), z); w.vel.set(0, 0, 0); w.yaw = yaw; w.pitch = pitch; }, [x, z, yaw, pitch]);

@@ -10,7 +10,7 @@ const outDir = `playtest-shots/gallery-${tag}-${quality}`;
 const report = {};
 
 for (const eco of ecos) {
-  const t = await launch({ query: `eco=${eco}&quality=${quality}`, outDir, width: 1280, height: 720 });
+  const t = await launch({ query: `eco=${eco}&quality=${quality}${process.env.STYLE ? `&style=${process.env.STYLE}` : ""}`, outDir, width: 1280, height: 720 });
   const r = report[eco] = { views: {}, errors: [] };
   const shot = async name => {
     await t.wait(1200);

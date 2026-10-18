@@ -1,6 +1,6 @@
 // Heightfield seabed. Each ecosystem supplies a height function and a substrate colour function.
 import * as THREE from 'three';
-import { patchUnderwater } from '../ocean/shaders.js';
+import { patchUnderwater, globalUniforms } from '../ocean/shaders.js';
 
 /** Canvas texture of fine grain + ripples, tiled across the seabed. */
 function makeDetailTexture(noise, kind = 'sand', ripple = 1) {
@@ -106,7 +106,7 @@ export class Terrain {
     const tex = makeDetailTexture(noise, eco.seabedKind ?? 'sand', eco.ripple ?? 1);
     tex.repeat.set(size / 3.5, size / 3.5);
     const mat = new THREE.MeshStandardMaterial({
-      vertexColors: true, map: tex, bumpMap: bumpFromTexture(tex), bumpScale: 1.5, roughness: 0.95, metalness: 0,
+      vertexColors: true, map: tex, bumpMap: bumpFromTexture(tex), bumpScale: globalUniforms.uStyle.value > 0.5 ? 0.35 : 1.5, // stylised: calm surfaces roughness: 0.95, metalness: 0,
     });
     // Break up texture tiling by modulating with a second, larger-scale sample.
     const rock = rockAt ? makeRockTexture(noise) : null, rockTex = rock?.tex;
@@ -125,14 +125,14 @@ export class Terrain {
           float rk = smoothstep(0.15, 0.85, vRock);
           float r1 = texture2D(uRockTex, vMapUv * 0.55).r, r2 = texture2D(uRockTex, vMapUv * 0.13 + vec2(0.2, 0.6)).r;
           vec3 rockDetail = vec3(0.35 + 0.65 * r1) * (0.75 + 0.35 * r2);
-          diffuseColor.rgb *= mix(sandDetail, rockDetail * 1.15, rk);
+          diffuseColor.rgb *= mix(mix(sandDetail, rockDetail * 1.15, rk), vec3(0.82), 0.6 * uStyle);
         #else
-          diffuseColor.rgb *= sandDetail;
+          diffuseColor.rgb *= mix(sandDetail, vec3(0.82), 0.6 * uStyle);
         #endif`);
       // Rock relief: perturb the normal with the rock texture's height (screen-space derivatives).
       if (rockTex) shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
-          float rk2 = smoothstep(0.15, 0.85, vRock);
+          float rk2 = smoothstep(0.15, 0.85, vRock) * (1.0 - 0.75 * uStyle);
           // Slopes from the precomputed map (two scales), applied in world space: uv u runs along +x, v along -z.
           vec2 sl = (texture2D(uRockNrm, vMapUv * 0.55).rg * 2.0 - 1.0) + 0.6 * (texture2D(uRockNrm, vMapUv * 0.13 + vec2(0.2, 0.6)).rg * 2.0 - 1.0);
           vec3 nW = normalize((vec4(normal, 0.0) * viewMatrix).xyz);
