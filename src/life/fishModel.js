@@ -332,12 +332,13 @@ export function buildRay(look) {
   geo.setIndex(idx);
   geo.computeVertexNormals();
   // Skin: top half v<0.5 dorsal, bottom half ventral.
-  const c = document.createElement('canvas'); c.width = c.height = 256;
-  const ctx = c.getContext('2d'); const img = ctx.createImageData(256, 256);
-  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
-    const u = x / 256, v = y / 256;
+  const R = 512; // crisp spots and bands on rays
+  const c = document.createElement('canvas'); c.width = c.height = R;
+  const ctx = c.getContext('2d'); const img = ctx.createImageData(R, R);
+  for (let y = 0; y < R; y++) for (let x = 0; x < R; x++) {
+    const u = x / R, v = y / R;
     const col = look.paint(u, v < 0.5 ? v * 2 : (v - 0.5) * 2, v < 0.5);
-    const i = (y * 256 + x) * 4;
+    const i = (y * R + x) * 4;
     img.data[i] = col[0] * 255; img.data[i + 1] = col[1] * 255; img.data[i + 2] = col[2] * 255; img.data[i + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);

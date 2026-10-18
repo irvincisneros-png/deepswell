@@ -96,6 +96,11 @@ export const pelagic = {
   diveIntro: 'Blue water in every direction — the bottom is over 100 m below. Stay close to the boat and look for birds diving: that means a bait ball.',
   boundsMsg: 'You\'re drifting too far from the boat — your buddy signals you back.',
   island: null,
+  cosyModels: {
+    url: 'assets/models/pelagic_cosy.glb',
+    coral: {},
+    statics: { bluebottle: 'bluebottle_0', salp: 'salp_0', moonjelly: 'jelly_moon' },
+  },
   speciesInfo, missions,
   coral: [],
   life: {

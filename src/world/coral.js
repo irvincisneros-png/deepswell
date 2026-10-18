@@ -1,6 +1,7 @@
 // Procedural corals and invertebrates. Every generator returns a BufferGeometry with a
 // 'color' attribute (vertex colours) in model space, base at y = 0.
 import * as THREE from 'three';
+import { globalUniforms } from '../ocean/shaders.js';
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { seg } from './lod.js';
 import { makeNoise, mulberry32 } from '../core/noise.js';
@@ -420,7 +421,12 @@ export function turtle(seed = 1, colors = {}) {
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 12), skinMat);
   head.scale.set(1.4, 0.9, 0.95); head.position.set(0.55, 0.02, 0);
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
-  for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), eyeMat); e.position.set(0.08, 0.035, 0.085 * s); head.add(e); }
+  const cosy = globalUniforms.uStyle.value > 0.5, er = cosy ? 0.034 : 0.022; // cosy look: bigger, friendlier eyes with a highlight
+  const hlMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const s of [-1, 1]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(er, 12, 8), eyeMat); e.position.set(0.08, 0.035, (0.085 + (cosy ? 0.01 : 0)) * s); head.add(e);
+    if (cosy) { const h = new THREE.Mesh(new THREE.SphereGeometry(er * 0.32, 8, 6), hlMat); h.position.set(0.08 + er * 0.4, 0.035 + er * 0.45, (0.085 + 0.01 + er * 0.75) * s); head.add(h); }
+  }
   group.add(shell, plastron, head);
   const flip = (len, w) => { const g = new THREE.SphereGeometry(0.5, 16, 8); g.scale(w, 0.06, len); g.translate(0, 0, len * 0.45); return g; };
   const mk = (len, w, x, z, side) => {

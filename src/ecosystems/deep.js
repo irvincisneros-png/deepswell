@@ -132,6 +132,7 @@ export const deep = {
   cosyModels: {
     url: 'assets/models/deep_cosy.glb',
     coral: { deepcoral: ['deepcoral_0', 'deepcoral_1', 'deepcoral_2'], bamboo: ['bamboo_0', 'bamboo_1'], glasssponge: ['glasssponge_0'], deeprock: ['deeprock_0', 'deeprock_1'] },
+    statics: { vampiresquid: 'vampiresquid_0', atolla: 'jelly_atolla', siphonophore: 'siphonophore_0', combjelly: 'combjelly_0', giantisopod: 'isopod_0', brittlestar: 'brittlestar_0' },
   },
   speciesInfo, missions,
   coral: [

@@ -9,10 +9,13 @@ import importlib, cosylib
 importlib.reload(cosylib)
 from cosylib import *
 from mathutils import Vector
+import creatures
+importlib.reload(creatures)
+from creatures import *
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else ['all']
-SITES = ['gbr', 'rocky', 'seagrass', 'deep'] if argv[0] == 'all' else [argv[0]]
+SITES = ['gbr', 'rocky', 'seagrass', 'pelagic', 'deep'] if argv[0] == 'all' else [argv[0]]
 PREVIEW = '--no-preview' not in argv
 
 def fit(o, width=None, height=None):
@@ -213,6 +216,9 @@ def rocky():
     out.append(fit(longspine_urchin('urchin_0', 6), 0.45, 0.3))
     out.append(fit(abalone_shell('abalone_0', 7), 0.22, 0.045))
     out.append(fit(cunjevoi_clump('cunjevoi_0', 8), 0.32, 0.17))
+    out += [seadragon('seadragon_0'), octopus('octopus_0'), rock_lobster('rocklobster_0')]
+    # Beach and rock platform: smooth-handed ghost crab (pale sand colour, tall eye stalks) and Waratah anemone (closed at low tide).
+    out += [crab('crab_ghost', 0xe8d8b0, 0xdccca4, 0.05, 1.2), fit(waratah('waratah_0'), 0.07, 0.035)]
     return out
 
 # ---------------------------------------------------------------- Moreton Bay seagrass & mangroves
@@ -284,7 +290,14 @@ def seagrass():
     out += [fit(paddleweed(f'halophila_{i}', 80 + i), 0.5, 0.05) for i in range(2)]
     out += [fit(mangrove_tree(f'mangrove_{i}', 90 + i), 4.5, 5.6) for i in range(3)]
     out += [fit(pegs(f'pneumato_{i}', 95 + i), 1.5, 0.34) for i in range(2)]
+    out += [seahorse('seahorse_0'), crab('crab_blueswimmer', 0x3a6ad0, 0x6a9ae0, 0.1, 1.1), crab('crab_mud', 0x3f4a30, 0x5a6040, 0.13, 1.5),
+            crab('crab_soldier', 0x8ab8ff, 0xb070c0, 0.03, 0.6), seahare('seahare_0'),
+            jelly('jelly_blubber', 0.2, 0.75, 0xd8d0e8, 0xf0e8ff, arms=8, arm_len=1.6)]
     return out
+
+def pelagic():
+    return [bluebottle('bluebottle_0'), salp_chain('salp_0'),
+            jelly('jelly_moon', 0.18, 0.4, 0xd8e0f2, 0xf2f2ff, arms=4, arm_len=1.2, tentacles=24, tent_len=0.6, ring=0xe0b8e8)]
 
 # ---------------------------------------------------------------- Tasmanian seamount (deep sea)
 def deep():
@@ -299,11 +312,19 @@ def deep():
     out += [fit(bamboo(f'bamboo_{i}', 111 + i), 0.7, 1.7) for i in range(2)]
     out.append(fit(vase('glasssponge_0', [(0.08, 0), (0.12, 0.25), (0.15, 0.55), (0.14, 0.75)], 0xe8e0c8, 0xb8b098, rim=0xfff8e8, lobes=6, wobble=0.05), 0.36, 0.75))
     out += [fit(pebble(f'deeprock_{i}', (1.0, 0.8, 0.55), 20 + i, top=0x5a5650, base=0x3a3834), 1.1, 0.45) for i in range(2)]
+    out += [vampire_squid('vampiresquid_0'), jelly('jelly_atolla', 0.12, 0.35, 0x80141c, 0xb02030, tentacles=20, tent_len=1.5, ring=0x4a90ff),
+            siphonophore('siphonophore_0'), comb_jelly('combjelly_0'), isopod('isopod_0'), brittle_star('brittlestar_0')]
     return out
 
 for site in SITES:
     reset()
     objs = globals()[site]()
     if PREVIEW: preview(objs, os.path.join(ROOT, 'playtest-shots', f'blender-{site}.png'), sky=0x9fd8e8 if site != 'deep' else 0x203040, ground=0xead7ad if site != 'deep' else 0x504840)
+    small = [o for o in objs if max(o.dimensions) < 1.25 and o.name.split('_')[0] in ('seadragon', 'octopus', 'rocklobster', 'seahorse', 'crab', 'seahare', 'jelly', 'bluebottle', 'salp', 'vampiresquid', 'siphonophore', 'combjelly', 'isopod', 'brittlestar', 'anemone', 'cots', 'seacucumber', 'urchin', 'abalone', 'cunjevoi')]
+    if PREVIEW and small:
+        for o in small:
+            if o.name.startswith('jelly') or o.name.startswith('bluebottle'): o.scale = (0.6, 0.6, 0.6)
+        preview(small, os.path.join(ROOT, 'playtest-shots', f'blender-{site}-small.png'), sky=0x9fd8e8 if site != 'deep' else 0x405060, ground=0xead7ad if site != 'deep' else 0x706860, cols=4, spacing=0.75)
+        for o in small: o.scale = (1, 1, 1)
     lows = [lo(o) for o in objs if tris(o) > 1200]
     export(objs + lows, os.path.join(ROOT, 'assets', 'models', f'{site}_cosy.glb'))

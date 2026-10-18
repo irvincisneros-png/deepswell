@@ -98,14 +98,14 @@ const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vect
 
 export class LandLife {
   /** spec: eco.land with life {id: n}, zones {id: (rnd) => {x, z}} and helpers. */
-  constructor(scene, eco, terrain, quality, seed = 13) {
+  constructor(scene, eco, terrain, quality, seed = 13, art = null) {
     this.group = new THREE.Group(); scene.add(this.group);
     this.terrain = terrain; this.eco = eco; this.agents = []; this.meshes = {};
     this.rnd = mulberry32(seed);
     const land = eco.land;
     for (const [id, n] of Object.entries(land.life)) {
       const b = LAND_BEHAVIOUR[id];
-      const geo = MODELS[id]();
+      const mid = art?.land?.[id], geo = mid && art.models.has(mid) ? art.models.get(mid).clone() : MODELS[id]();
       const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: id === 'waratahanemone' ? 0.25 : 0.7, side: THREE.DoubleSide });
       if (id === 'bluelinedoctopus') this.patchGlow(mat);
       patchUnderwater(mat, { key: 'land' + id });

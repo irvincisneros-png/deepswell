@@ -20,6 +20,9 @@ accurate, that runs well on school laptops. The realistic look stays available i
 - [x] Thin ink outlines on silhouettes, faded by fog; water excluded (no depth write in the cosy look)
 - [x] Blender sets for GBR, rocky reef, seagrass, deep sea (`tools/blender/build_sets.py`, shared `cosylib.py`), with `_lo` versions
 - [x] Small creatures: anemone, crown-of-thorns, prickly redfish (GBR); long-spined urchin, abalone, cunjevoi (rocky reef)
+- [x] More creatures: weedy seadragon, octopus, rock lobster (rocky); seahorse, blue swimmer / mud / soldier crabs, sea hare, blubber jelly (seagrass); bluebottle, salps, moon jelly (pelagic); vampire squid, atolla, siphonophore, comb jelly, giant isopod, brittle star (deep); beach ghost crab and Waratah anemone (`tools/blender/creatures.py`)
+- [x] Cosy turtle eyes; round spots on the whitespotted eagle ray; ray textures at 512 px
+- [x] Outline fixes: live fog/underwater values in the post pass; water surface blocks outlines while underwater
 - [x] Cosy is the default; Settings > Graphics style switches to Realistic (`?style=realistic` also works)
 - [x] Performance: low tier GBR 5.8 ms (was 7.2 ms in the original), ultra GBR 13.6 ms (was 21.6 ms)
 
@@ -29,6 +32,7 @@ Writes `assets/models/<site>_cosy.glb` and review renders `playtest-shots/blende
 Edit colours/shapes in `build_sets.py` (per site) or `cosylib.py` (shared shape builders) and rerun.
 
 ## Next ideas
-- Model the remaining procedural creatures in the cosy style (turtle, dugong, giant clam, octopus, seadragon, jellies, land crabs and birds) with simple animation clips.
+- Simple animation clips (crab scuttle/burrow, bird hops and take-off, octopus arm curl) via Blender rigs + three.js AnimationMixer.
+- Cosy remodels of the larger rigs (turtle body, giant clam) and marine mammals.
 - Painted (baked) textures for richer surfaces; per-site colour grading.
 - Pelagic site has no habitat models (open water) — fish and jellies carry it.

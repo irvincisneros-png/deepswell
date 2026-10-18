@@ -59,7 +59,14 @@ const looks = {
     dorsal: { from: 0.05, to: 0.9, height: 0.05 }, anal: { from: 0.05, to: 0.9, height: 0.05 },
     paint: { body: withEye((u, s) => { const zeb = Math.sin(u * 50 + Math.sin(s * 6) * 2) > 0.4 && s > 0; return zeb ? C(0x5a4030) : mix(C(0xe8dcc8), C(0xa08a6a), sm(-0.4, 0.5, s)); }, 0.84, 0.2, 0.05, 0x111111, 0xd8c880), fin: () => C(0xd8ccb0) }, swim: { freq: 6, amp: 0.15 } },
   eagleray: { kind: 'manta', length: 0.9, span: 1.8, thick: 0.22, tail: 1.6,
-    paint: (u, v, top) => { if (!top) return C(0xf2f2ee); const sp = hash(Math.floor(u * 26), Math.floor(v * 26)) > 0.78 && hash(u * 13.1, v * 7.7) > 0.3; return sp ? C(0xf0f0f0) : C(0x2a3036); }, swim: { freq: 1.6, amp: 0.6 } },
+    // Whitespotted eagle ray (Aetobatus ocellatus): dark back with round white spots (jittered grid), white belly.
+    paint: (u, v, top) => {
+      if (!top) return C(0xf2f2ee);
+      const gu = u * 16, gv = v * 16, cu = Math.floor(gu), cv = Math.floor(gv);
+      const ok = hash(cu, cv) > 0.3, jx = 0.5 + (hash(cu + 7.1, cv) - 0.5) * 0.5, jy = 0.5 + (hash(cu, cv + 3.3) - 0.5) * 0.5;
+      const d = Math.hypot(gu - cu - jx, gv - cv - jy), r = 0.16 + 0.12 * hash(cu + 1.7, cv + 9.1);
+      return ok && d < r ? C(0xf0f0f0) : C(0x2a3036);
+    }, swim: { freq: 1.6, amp: 0.6 } },
   shovelnose: { length: 1.6, depth: 0.1, width: 0.3, peak: 0.7, snout: 0.9, tailFrac: 0.2, tail: 'heterocercal', tailSpan: 0.7, pectoral: 0.2, pecWing: 1.2, boxy: 3,
     dorsal: { from: 0.3, to: 0.42, height: 0.07, shape: 'tri' }, anal: null,
     paint: { body: withEye(counter(0xb8a07a, 0xf0e8d8, 0.6), 0.85, 0.6, 0.02), fin: () => C(0xb8a07a) }, swim: { freq: 1.8, amp: 0.4 } },
@@ -115,6 +122,7 @@ export const seagrass = {
   cosyModels: {
     url: 'assets/models/seagrass_cosy.glb',
     coral: { zostera: ['zostera_0', 'zostera_1', 'zostera_2'], halophila: ['halophila_0', 'halophila_1'], mangrove: ['mangrove_0', 'mangrove_1', 'mangrove_2'], pneumatophores: ['pneumato_0', 'pneumato_1'] },
+    statics: { seahorse: 'seahorse_0', blueswimmer: 'crab_blueswimmer', mudcrab: 'crab_mud', soldiercrab: 'crab_soldier', seahare: 'seahare_0', jellyfish: 'jelly_blubber' },
   },
   speciesInfo, missions,
   placers: {

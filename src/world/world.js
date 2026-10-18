@@ -43,7 +43,7 @@ export class World {
     await tick();
     progress(0.75, 'Painting fish and waking the reef…');
     this.life = new Life(this.scene, eco, this.terrain, this.reef, this.particles, this.quality, 5, art);
-    this.land = eco.land ? new LandLife(this.scene, eco, this.terrain, this.quality) : null;
+    this.land = eco.land ? new LandLife(this.scene, eco, this.terrain, this.quality, 13, art) : null;
     eco.decorate?.(this);
     await tick();
     progress(0.9, 'Final touches…');
