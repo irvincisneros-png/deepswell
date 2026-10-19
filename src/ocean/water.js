@@ -105,6 +105,13 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
       float foam = smoothstep(0.35, 0.75, vFoam * (0.55 + fn));
       foam = max(foam, smoothstep(0.92, 1.0, vFoam));
       if (uStyle > 0.5) foam = smoothstep(0.42, 0.48, foam);           // stylised: crisp white foam shapes
+      if (uStyle > 0.5 && !below) {
+        // Shore foam: soft white bands lapping where the water meets sand or rock.
+        float lap = sin(uTime * 1.1 + vWPos.x * 0.15 + fbm(vWPos.xz * 0.2) * 3.0);
+        float shore = smoothstep(0.9, 0.15, wdepth + 0.25 * lap);
+        float band = shore * (0.55 + 0.45 * smoothstep(0.45, 0.6, fbm(vWPos.xz * 0.8 + uTime * 0.1)));
+        foam = max(foam, band);
+      }
       if (!below) {
         float fres = 0.02 + 0.98 * pow(1.0 - max(dot(N, V), 0.0), 5.0);
         vec3 R = reflect(-V, N); R.y = abs(R.y);

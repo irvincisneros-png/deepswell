@@ -6,7 +6,7 @@ const quality = process.env.QUALITY ?? 'ultra';
 const ecos = (process.env.ECOS ?? 'gbr,rocky,seagrass,pelagic,deep').split(',');
 const out = {};
 for (const eco of ecos) {
-  const t = await launch({ query: `eco=${eco}&quality=${quality}`, width: 1280, height: 720 });
+  const t = await launch({ query: `eco=${eco}&quality=${quality}${process.env.STYLE ? `&style=${process.env.STYLE}` : ""}`, width: 1280, height: 720 });
   await t.click('#btn-dive'); await t.wait(1500);
   out[eco] = await t.page.evaluate(async ([shadows]) => {
     const g = window.__game;

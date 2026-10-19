@@ -40,6 +40,7 @@ class Game {
     // Neutral tone mapping keeps the stylised palette saturated (ACES pushes bright colours toward white).
     this.renderer.toneMapping = this.stylised ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
     globalUniforms.uStyle.value = this.stylised ? 1 : 0;
+    globalUniforms.uFull.value = this.settings.quality === 'low' ? 0 : 1;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     // Soft sun shadows (high/ultra only): grounds coral, rocks and animals on the seabed.
@@ -107,7 +108,7 @@ class Game {
             // Fade outlines with the same fog that hides the object, so nothing fogged-out leaves a ghost line.
             float vis = uUnder > 0.5 ? exp(-pow(uFogDensity * z * 1.6, 2.0)) : 1.0 - smoothstep(25.0, 70.0, z);
             float edge = smoothstep(0.09, 0.18, lap) * vis;
-            c = mix(c, c * 0.3, edge * OUTLINE);
+            c = mix(c, c * vec3(0.22, 0.36, 0.42), edge * OUTLINE); // dark teal, not black
             float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
             c = mix(vec3(l), c, 1.22);
             c = mix(c * vec3(0.92, 1.0, 1.06), c, smoothstep(0.0, 0.6, l));

@@ -138,8 +138,8 @@ export class Environment {
     if (globalUniforms.uStyle.value > 0.5) {
       const G = globalUniforms;
       if (u) {
-        G.uStyleSky.value.copy(this.fogBelow).multiplyScalar(2.6).lerp(new THREE.Color(1, 1, 1), 0.35); // bright, clear shallows
-        G.uStyleGround.value.copy(this.fogBelow).multiplyScalar(0.9);
+        G.uStyleSky.value.copy(this.fogBelow).multiplyScalar(2.6).lerp(new THREE.Color(1, 1, 1), 0.45); // bright, clear shallows
+        G.uStyleGround.value.copy(this.fogBelow).lerp(G.uShallowTint.value, 0.5).multiplyScalar(this.sunBase > 0 ? 1.1 : 0.9);
         G.uStyleSun.value.set(0.62, 0.6, 0.5).multiplyScalar(Math.min(1, this.sunBase / 2.4));
         G.uStyleRim.value.copy(this.fogBelow).multiplyScalar(1.6);
       } else {
@@ -152,8 +152,11 @@ export class Environment {
     if (u) {
       const k = Math.min(1, depth / (this.fogDepthScale ?? 25));
       globalUniforms.uFogColor.value.copy(this.fogBelow).lerp(this.fogDeep, k);
+      // Cosy art style: bright, clear turquoise water (the deep-sea site keeps its darkness).
+      const cosyBright = globalUniforms.uStyle.value > 0.5 && this.sunBase > 0;
+      if (cosyBright) globalUniforms.uFogColor.value.lerp(globalUniforms.uShallowTint.value, 0.4 * (1 - k * 0.6));
       this.fog.color.copy(globalUniforms.uFogColor.value);
-      this.fog.density = this.fogDensityBelow * (1 + k * 0.4);
+      this.fog.density = this.fogDensityBelow * (1 + k * 0.4) * (cosyBright ? 0.7 : 1);
       globalUniforms.uFogDensity.value = this.fog.density;
       this.scene.background = this.fog.color;
       this.renderer.toneMappingExposure = globalUniforms.uStyle.value > 0.5 ? 1.05 : 0.85;

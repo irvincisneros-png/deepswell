@@ -39,7 +39,10 @@ export function heightAt(x, z) {
 
 export function reefiness(x, z) {
   let r = smoothstep(-70, -50, z) * (1 - smoothstep(12, 22, z)); // fore-reef + crest
-  r = Math.max(r * (0.75 + 0.25 * noise.n2(x * 0.05, z * 0.05)), 0);
+  // Patchy coral with open sand channels between (composition: clearings and paths, not uniform scatter).
+  const patch = smoothstep(-0.05, 0.3, noise.fbm2(x * 0.035 + 3, z * 0.035, 3));
+  const channel = smoothstep(0.12, 0.3, Math.abs(Math.sin(x * 0.07 + noise.n2(x * 0.02, z * 0.02) * 2.2)));
+  r = Math.max(r * (0.35 + 0.65 * patch) * channel, 0);
   for (const [bx, bz, rad] of BOMMIES) r = Math.max(r, 1 - smoothstep(rad * 0.8, rad * 1.6, Math.hypot(x - bx, z - bz)));
   return clamp(r, 0, 1);
 }
