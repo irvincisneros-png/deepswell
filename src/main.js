@@ -211,7 +211,7 @@ class Game {
       onEnd: r => this.onRideEnd(r), onTrick: (n, p) => this.showTrick(n, p),
       training: this.surfCount <= 1,
     });
-    this.setKeys([['W', 'paddle / pump'], ['A', 'drop down face'], ['D', 'climb to lip'], ['Space', 'pop up'], ['S', 'crouch'], ['E', 'kick out'], ['P', 'pause']]);
+    this.setKeys([['W', 'paddle / pump'], ['A', 'drop down face'], ['D', 'climb to lip'], ['Space', 'pop up'], ['S', 'crouch'], ['E', 'kick out'], ['V', 'camera'], ['P', 'pause']]);
     this.toast(this.eco.surf.intro ?? 'Paddle out complete. Waves come in sets — watch behind you, then paddle (W) to catch one.');
   }
   onRideEnd(r) {
@@ -615,10 +615,6 @@ class Game {
     const depth = surfaceY - cam.y;
     this.env.update(dt, this.camera, depth);
     this.world.ocean.update(this.camera, depth > 0);
-    if (this.stylised) {
-      // Cosy outlines: underwater, the surface writes depth so things above it don't leave outlines through the water.
-      for (const m of [this.world.ocean.near, this.world.ocean.far, this.world.waveMesh?.mesh]) if (m) m.material.depthWrite = depth > 0;
-    }
     // Underwater, fog hides everything past ~2.6/density metres; above water the reef shows through to ~150 m.
     // Beyond ~1/density metres, fog has softened colonies enough to swap in the low-detail versions.
     this.world.reef?.cull(cam, depth > 0 ? 2.6 / this.env.fogDensityBelow + 4 : 150, depth > 0 ? 0.9 / this.env.fogDensityBelow : 40);

@@ -33,6 +33,7 @@ export class SurfSession {
   update(dt, time) {
     this.t += dt;
     const inp = this.input;
+    if (inp.hit('KeyV')) { this.thirdPerson = !this.thirdPerson; this.msg = this.thirdPerson ? 'Camera: behind the surfer (V)' : 'Camera: your own eyes (V)'; this.msgTimer = 1.5; }
     this.prompt = '';
     if (this.wave) this.wave.update(dt);
     if (this.state === 'wait' || this.state === 'paddle') {
@@ -237,6 +238,22 @@ export class SurfSession {
   updateCamera(dt) {
     const p = this.pos;
     let want, look;
+    const fp = !this.thirdPerson && this.state === 'ride';
+    this.surfer.rider.visible = !fp; // first person: you are the rider (the board stays in view at your feet)
+    if (fp) {
+      const R = this.ride;
+      const travel = new THREE.Vector3(-Math.cos(R.theta * 0.5), 0, -Math.sin(R.theta * 0.5) * 0.5).normalize();
+      const eyeH = R.crouch ? 0.95 : 1.45;
+      want = p.clone().add(new THREE.Vector3(0, eyeH, 0)).addScaledVector(travel, -0.25);
+      // Look down the line toward the shoulder, a little toward the open face so the wave wall stays in view.
+      look = p.clone().addScaledVector(travel, 6).add(new THREE.Vector3(0, eyeH - 2.4, 1.0)); // tilted down: board nose in view
+      this.camPos.lerp(want, 1 - Math.exp(-14 * dt)); this.camLook.lerp(look, 1 - Math.exp(-10 * dt));
+      this.camera.position.copy(this.camPos);
+      const minY = this.waterHeight(this.camPos.x, this.camPos.z, this.t) + 0.3;
+      if (this.camera.position.y < minY) this.camera.position.y = minY;
+      this.camera.lookAt(this.camLook);
+      return;
+    }
     if (this.state === 'ride' || this.state === 'done') {
       const R = this.ride;
       const travel = new THREE.Vector3(-Math.cos(R.theta * 0.5), 0, -Math.sin(R.theta * 0.5) * 0.5).normalize();

@@ -118,6 +118,15 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
           body += vec3(0.06, 0.5, 0.38) * sss * smoothstep(0.45, 1.1, thick) * 0.7;
           float streak = fbm(vec2(vWPos.x * 0.45 + vWPos.z * 0.1, thick * 5.0 - uTime * 0.6));
           body *= 0.78 + 0.42 * streak;
+          if (uStyle > 0.5) {
+            float h = smoothstep(0.04, 1.0, thick);
+            body = mix(uDeepTint * 0.85 + uWaterTint * 0.35, uShallowTint * 1.25 + vec3(0.04, 0.1, 0.08), h);
+            body += vec3(0.08, 0.42, 0.32) * sss * smoothstep(0.5, 1.1, thick) * 0.9; // light glowing through the thin lip
+            // Foam drawn up the face as crisp swirling streaks, and a bright band along the lip.
+            float sw = fbm(vec2(vWPos.x * 0.32 + sin(vWPos.z * 0.5 + uTime * 0.4) * 0.7, thick * 3.0 - uTime * 0.5));
+            foam = max(foam, smoothstep(0.54, 0.57, sw) * smoothstep(0.2, 0.6, thick) * 0.85);
+            foam = max(foam, smoothstep(0.72, 0.8, thick));
+          }
         ` : `
           body += vec3(0.04, 0.35, 0.3) * sss * thick * 0.6;
         `}
@@ -131,7 +140,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
         col = mix(col, skyColor(normalize(vec3(-V.x, 0.02, -V.z))), hz);
         // Clear tropical water: see the reef when looking down into the shallows.
         alpha = clamp(0.42 + fres * 1.3 + smoothstep(3.0, 26.0, wdepth) * 0.6 + foam + hz, 0.0, 1.0);
-        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(0.12, 0.45, thick));' : ''}
+        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(uStyle > 0.5 ? 0.02 : 0.12, uStyle > 0.5 ? 0.15 : 0.45, thick));' : ''}
       } else {
         // Looking up from below: Snell's window shows the sky, outside it total internal reflection.
         vec3 Nb = -N;
@@ -149,7 +158,7 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
       #include <colorspace_fragment>
     }`;
   // Stylised look: water doesn't write depth, so the ink-outline pass outlines things under the surface but not waves.
-  return new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide, transparent: true, depthWrite: globalUniforms.uStyle.value < 0.5 });
+  return new THREE.ShaderMaterial({ uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide, transparent: true });
 }
 
 export class Ocean {
