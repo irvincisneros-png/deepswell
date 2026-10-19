@@ -34,7 +34,10 @@ def vcolor(obj, fn):
 _mat = None
 def vc_material():
     global _mat
-    if _mat and _mat.name in bpy.data.materials: return _mat
+    try:
+        if _mat and _mat.name in bpy.data.materials: return _mat
+    except ReferenceError:  # removed when the scene was reset for the next site
+        pass
     m = bpy.data.materials.new('VC')
     nt = m.node_tree if m.node_tree else None
     if nt is None:
@@ -46,10 +49,43 @@ def vc_material():
     _mat = m
     return m
 
-def finish(obj, name):
+AO_STRENGTH = 0.8
+
+def bake_ao(obj, strength=None):
+    """Bake ambient occlusion (Cycles) into the vertex colours: crevices, branch forks, undersides and the contact
+    with the ground darken softly. A temporary ground plane under the model gives the base its contact shadow."""
+    strength = AO_STRENGTH if strength is None else strength
+    if strength <= 0 or not obj.data.color_attributes.get('Col'): return obj
+    sc = bpy.context.scene
+    others = [o for o in sc.objects if o is not obj and o.type == 'MESH']
+    for o in others: o.hide_render = True
+    zmin = min(v.co.z for v in obj.data.vertices)
+    bpy.ops.mesh.primitive_plane_add(size=50, location=(0, 0, zmin - 0.002)); ground = bpy.context.active_object
+    if sc.world is None: sc.world = bpy.data.worlds.new('bakeworld')
+    size = max(obj.dimensions) or 1
+    sc.world.light_settings.distance = max(0.05, size * 0.35)
+    sc.render.engine = 'CYCLES'; sc.cycles.samples = 24; sc.cycles.device = 'CPU'
+    me = obj.data
+    ao = me.color_attributes.new('AO', 'FLOAT_COLOR', 'POINT')
+    me.color_attributes.active_color = ao
+    bpy.ops.object.select_all(action='DESELECT'); obj.select_set(True); bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.bake(type='AO', target='VERTEX_COLORS')
+    col = me.color_attributes['Col']
+    for i in range(len(col.data)):
+        k = 1 - strength * (1 - ao.data[i].color[0])
+        c = col.data[i].color
+        col.data[i].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
+    me.color_attributes.remove(me.color_attributes['AO'])
+    me.color_attributes.active_color = me.color_attributes['Col']
+    bpy.data.objects.remove(ground)
+    for o in others: o.hide_render = False
+    return obj
+
+def finish(obj, name, ao=None):
     obj.name = name; obj.data.name = name
     for p in obj.data.polygons: p.use_smooth = True
     obj.data.materials.clear(); obj.data.materials.append(vc_material())
+    bake_ao(obj, ao)
     return obj
 
 def link(obj):
@@ -131,8 +167,8 @@ def pebble(name, size=(1.0, 0.8, 0.55), seed=1, top=0xb9c6cc, base=0xb0bec4 - 0x
     vcolor(o, lambda co, n: mix(b, t, smoothstep(-0.4, 0.8, n.z)))
     return finish(o, name)
 
-def branching(name, seed, base, tip, stems=5, length=0.3, radius=0.11, depth=3, spread=0.5, flatten=0.0, taper=0.15, shrink=0.88,
-              res=0.04, tip_gamma=1.3, upward=(0.1, 0.6), jitter=0.9, max_tris=2600):
+def branching(name, seed, base, tip, stems=5, length=0.3, radius=0.11, depth=3, spread=0.5, flatten=0.0, taper=0.3, shrink=0.8,
+              res=0.04, tip_gamma=1.3, upward=(0.1, 0.6), jitter=0.9, max_tris=3000, corallites=True):
     """Chunky branching colony from metaballs (staghorn, deep-sea coral, sea fans with flatten ~1)."""
     rnd = random.Random(seed)
     elems = []
@@ -140,9 +176,16 @@ def branching(name, seed, base, tip, stems=5, length=0.3, radius=0.11, depth=3, 
         steps = max(2, int(L / (r * 0.7)))
         for s in range(1, steps + 1):
             q = p + d * (L * s / steps)
-            elems.append((q, r * (1 - taper * s / steps)))
+            rr = r * (1 - taper * s / steps)
+            elems.append((q, rr))
+            # Radial corallites: small bumps along the branch (the cups of individual polyps).
+            if corallites and rnd.random() < 0.55:
+                side = d.cross(Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1)))).normalized()
+                elems.append((q + side * rr * 0.75 + d * rr * 0.3, rr * 0.38))
         end = p + d * L
-        if dep == 0: return
+        if dep == 0:
+            elems.append((end + d * r * 0.25, r * (1 - taper) * 0.55))   # rounded, slightly pointed growing tip
+            return
         for k in range(2 if dep > 1 else rnd.choice([1, 2])):
             nd = d + Vector((rnd.uniform(-jitter, jitter), rnd.uniform(-jitter, jitter) * (1 - flatten), rnd.uniform(*upward)))
             nd = nd.normalized()
@@ -158,14 +201,15 @@ def branching(name, seed, base, tip, stems=5, length=0.3, radius=0.11, depth=3, 
     vcolor(o, lambda co, n: mix(b, t, smoothstep(0.25, 1.0, co.z / zmax) ** tip_gamma))
     return finish(o, name)
 
-def grooved_dome(name, ridge, groove, freq=6.0, amp=0.07, squash=0.72, seg=64, max_tris=2600, seed=0):
+def grooved_dome(name, ridge, groove, freq=6.0, amp=0.07, squash=0.72, seg=96, max_tris=4200, seed=0):
     """Brain coral: a dome with meandering ridges and grooves (colour follows the same pattern)."""
     bpy.ops.mesh.primitive_uv_sphere_add(segments=seg, ring_count=seg // 2, radius=0.5)
     o = bpy.context.active_object
     off = Vector((seed * 1.7, seed * 0.3, 0))
     def g_at(p):
-        w = p * freq + Vector((noise.noise(p * 2 + off) * 2.5, noise.noise(p * 2 + Vector((5, 0, 0)) + off) * 2.5, 0))
-        return math.sin(w.x + math.sin(w.y * 0.8) * 1.6)
+        # Domain-warped stripes; abs(sin) gives rounded ridges with narrow valleys between them (meanders).
+        w = p * freq + Vector((noise.noise(p * 2.2 + off) * 3.0, noise.noise(p * 2.2 + Vector((5, 0, 0)) + off) * 3.0, noise.noise(p * 1.5 + off) * 2.0))
+        return 1.0 - 2.0 * (1.0 - abs(math.sin(w.x + math.sin(w.y * 0.9) * 1.8 + w.z * 0.6))) ** 3
     gv = {}
     for v in o.data.vertices:
         p = v.co.copy(); g = g_at(p); gv[v.index] = g
@@ -175,7 +219,7 @@ def grooved_dome(name, ridge, groove, freq=6.0, amp=0.07, squash=0.72, seg=64, m
     o.data.update()
     budget(o, max_tris)
     r, gr = srgb(ridge), srgb(groove)
-    vcolor(o, lambda co, n: mix(gr, r, smoothstep(-0.2, 0.5, g_at(Vector((co.x, co.y, co.z / squash if co.z > 0 else co.z))))))
+    vcolor(o, lambda co, n: mix(gr, r, smoothstep(-0.6, 0.2, g_at(Vector((co.x, co.y, co.z / squash if co.z > 0 else co.z))))))
     return finish(o, name)
 
 def lumpy_dome(name, col_top, col_base, bumps=26, size=(1.0, 1.0, 0.7), seed=3, max_tris=2200):

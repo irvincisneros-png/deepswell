@@ -155,7 +155,7 @@ def gbr():
     # Barrel sponge (Xestospongia): big reddish-brown barrel with ridges.
     out.append(fit(vase('barrel_0', [(0.28, 0), (0.36, 0.25), (0.4, 0.55), (0.36, 0.8)], 0xb87a6a, 0x7a4a40, rim=0xd09a88, wobble=0.07, lobes=9), 0.8, 0.8))
     # Sea fan (gorgonian): a flat fan of fine branches, orange-red.
-    out.append(fit(branching('seafan_0', 31, 0xc8563c, 0xffa070, stems=7, length=0.22, radius=0.03, depth=5, spread=1.1, flatten=1.0, res=0.016, upward=(0.25, 0.55), jitter=1.0, shrink=0.9, max_tris=3000), 1.6, 1.25))
+    out.append(fit(branching('seafan_0', 31, 0xc8563c, 0xffa070, stems=7, length=0.22, radius=0.03, depth=5, spread=1.1, flatten=1.0, res=0.016, upward=(0.25, 0.55), jitter=1.0, taper=0.15, shrink=0.9, corallites=False, max_tris=3000), 1.6, 1.25))
     # Reef rock: grey-lilac (pink coralline crusts).
     out.append(fit(pebble('rock_0', (1.0, 0.8, 0.55), 1, top=0xc6c0cc, base=0x8e8898), 1.1, 0.45))
     out.append(fit(pebble('rock_1', (0.8, 0.7, 0.7), 2, top=0xbcc4cc, base=0x86909a), 1.0, 0.45))
@@ -167,22 +167,32 @@ def gbr():
 
 # ---------------------------------------------------------------- NSW rocky reef & kelp (Illawarra)
 def kelp_plant(name, seed, height=1.0):
-    """Golden kelp (Ecklonia radiata): stiff stipe, then a crown of thick golden-brown blades."""
+    """Golden kelp (Ecklonia radiata): a stiff stipe, then a long central blade (primary lamina) with paired,
+    strap-like lateral blades along both edges, drooping in the swell. Golden- to olive-brown, darker at the base."""
     rnd = random.Random(seed)
-    parts = [tube((0, 0, 0), (0.02, 0.0, height * 0.55), 0.035, 0.025, 8)]
-    top = Vector((0.02, 0, height * 0.55))
-    for b in range(9):
-        a = b / 9 * math.tau + rnd.uniform(-0.2, 0.2)
-        L = height * rnd.uniform(0.5, 0.75); rise = rnd.uniform(0.15, 0.5)
-        pts, ws = [], []
-        for i in range(9):
-            t = i / 8
-            pts.append(top + Vector((math.cos(a) * L * t, math.sin(a) * L * t, math.sin(t * math.pi * 0.8) * rise * L - t * t * 0.18 * L)))
-            ws.append(0.16 * math.sin(math.pi * min(1, 0.12 + t * 0.95)) ** 0.7 + 0.02)
-        parts.append(strap(pts, ws, thick=0.018, twist=rnd.uniform(-0.6, 0.6)))
-    o = join(parts, name); budget(o, 2200)
-    base, gold = srgb(0x4a3418), srgb(0x9a7234)  # Ecklonia: olive/golden-brown, darker toward the stipe
-    vcolor(o, lambda co, n: mix(base, gold, smoothstep(height * 0.35, height * 1.1, co.z + math.hypot(co.x, co.y) * 0.6)))
+    stipe_h = height * rnd.uniform(0.4, 0.55)
+    lean = Vector((rnd.uniform(-0.15, 0.15), rnd.uniform(-0.15, 0.15), 1)).normalized()
+    top = lean * stipe_h
+    parts = [tube((0, 0, 0), top, 0.03, 0.022, 8)]
+    a = rnd.uniform(0, math.tau); L = height * 0.75
+    ts = [k / 10 for k in range(11)]
+    centre = [top + Vector((math.cos(a) * L * t * 0.7, math.sin(a) * L * t * 0.7, L * (0.55 * math.sin(t * math.pi * 0.75) - 0.25 * t * t))) for t in ts]
+    parts.append(strap(centre, [0.13 * math.sin(math.pi * min(1, 0.1 + t * 0.95)) ** 0.5 + 0.03 for t in ts], thick=0.02, twist=rnd.uniform(-0.4, 0.4)))
+    for k in range(2, 10, 2):
+        t = k / 10; c = centre[k]
+        d_main = (centre[min(k + 1, 10)] - centre[k - 1]).normalized()
+        side = d_main.cross(Vector((0, 0, 1)))
+        if side.length < 1e-3: side = Vector((1, 0, 0))
+        side.normalize()
+        ln = height * (0.18 + 0.32 * math.sin(math.pi * t)) * rnd.uniform(0.85, 1.1)
+        us = [m / 6 for m in range(7)]
+        for sgn in (-1, 1):
+            out = (side * sgn * 0.85 + d_main * 0.35 + Vector((0, 0, -0.25))).normalized()
+            pts = [c + out * ln * u + Vector((0, 0, -0.18 * ln * u * u)) for u in us]
+            parts.append(strap(pts, [0.085 * math.sin(math.pi * min(1, 0.15 + u * 0.9)) ** 0.6 + 0.02 for u in us], thick=0.016, twist=rnd.uniform(-0.5, 0.5)))
+    o = join(parts, name); budget(o, 2600)
+    base, gold = srgb(0x4a3418), srgb(0x9a7234)
+    vcolor(o, lambda co, n: mix(base, gold, smoothstep(stipe_h * 0.6, stipe_h + height * 0.4, co.z + math.hypot(co.x, co.y) * 0.4)) if co.z > stipe_h * 0.8 else srgb(0x3e2c14))
     return finish(o, name)
 
 def crayweed_plant(name, seed):
@@ -203,7 +213,7 @@ def crayweed_plant(name, seed):
 
 def rocky():
     out = []
-    out += [fit(kelp_plant(f'kelp_{i}', 40 + i * 7), 1.6, 0.9) for i in range(3)]
+    out += [fit(kelp_plant(f'kelp_{i}', 40 + i * 7), 1.4, 1.1) for i in range(4)]
     out += [fit(crayweed_plant(f'crayweed_{i}', 60 + i), 0.6, 1.6) for i in range(2)]
     out.append(fit(fingers('fingersponge_0', 5, 0xe08a30, 0xffc070), 0.4, 0.5))
     out.append(fit(fingers('fingersponge_1', 9, 0xd8b030, 0xfff090, count=5), 0.35, 0.45))
@@ -303,10 +313,10 @@ def pelagic():
 def deep():
     out = []
     # Solenosmilia variabilis reef: fine, bushy, pale peach-white branches.
-    out += [fit(branching(f'deepcoral_{i}', 101 + i, 0xd8b8a8, 0xfff0e8, stems=7, length=0.18, radius=0.04, depth=4, spread=0.9, res=0.02, jitter=1.1, max_tris=2600), 0.85, 0.46) for i in range(3)]
+    out += [fit(branching(f'deepcoral_{i}', 101 + i, 0xd8b8a8, 0xfff0e8, stems=7, length=0.18, radius=0.045, depth=4, spread=0.9, res=0.02, jitter=1.1, taper=0.15, shrink=0.88, max_tris=2600), 0.85, 0.46) for i in range(3)]
     # Bamboo coral (Isididae): white calcite segments with dark nodes.
     def bamboo(name, seed):
-        o = branching(name, seed, 0xf2eee6, 0xffffff, stems=1, length=0.6, radius=0.035, depth=3, spread=0.15, res=0.02, upward=(0.6, 1.0), jitter=0.5, max_tris=1800)
+        o = branching(name, seed, 0xf2eee6, 0xffffff, stems=1, length=0.6, radius=0.035, depth=3, spread=0.15, res=0.02, upward=(0.6, 1.0), jitter=0.5, taper=0.15, shrink=0.88, corallites=False, max_tris=1800)
         vcolor(o, lambda co, n: srgb(0x5a3a2a) if (co.z * 9) % 1 < 0.12 else srgb(0xf0ece4))
         return o
     out += [fit(bamboo(f'bamboo_{i}', 111 + i), 0.7, 1.7) for i in range(2)]
