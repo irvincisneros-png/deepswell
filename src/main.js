@@ -206,6 +206,7 @@ class Game {
     this.input.wantLock = false; this.input.unlock();
     this.diver.active = false;
     this.surfer.root.visible = true; this.surfer.rider.visible = true;
+    if (!this.camera.parent) this.scene.add(this.camera); // first-person paddling arms are children of the camera
     this.surfSession = new SurfSession({
       eco: this.eco, surfer: this.surfer, camera: this.camera, input: this.input, fx: this.fx, audio: this.audio, settings: this.settings,
       onEnd: r => this.onRideEnd(r), onTrick: (n, p) => this.showTrick(n, p),
@@ -227,6 +228,7 @@ class Game {
     this.panels.result(r, () => this.lockSoon(), () => this.startSurf());
   }
   startDive(spawn, breath = 1, wipeout = false, quiet = false) {
+    if (this.surfSession?.hands) this.surfSession.hands.visible = false;
     this.mode = 'dive'; this.modeSince = this.time;
     document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
     $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');

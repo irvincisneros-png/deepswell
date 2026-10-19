@@ -5,6 +5,32 @@ import { clamp, damp, smoothstep } from '../core/noise.js';
 
 const G = 9.81;
 
+/** First-person paddling arms: wetsuit forearms and hands that stroke alongside the board. */
+function makeHands(camera) {
+  const g = new THREE.Group();
+  const suit = new THREE.MeshStandardMaterial({ color: 0x15191e, roughness: 0.5 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xc89070, roughness: 0.6 });
+  const arms = [];
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Group();
+    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.3, 4, 10), suit); fore.rotation.x = Math.PI / 2; fore.position.z = -0.2;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), skin); hand.scale.set(0.9, 0.45, 1.4); hand.position.z = -0.42;
+    arm.add(fore, hand); arm.userData.side = side; g.add(arm); arms.push(arm);
+  }
+  g.userData.stroke = (t, paddling, facing) => {
+    for (const a of arms) {
+      const ph = t * 5.2 + (a.userData.side > 0 ? Math.PI : 0);
+      const reach = paddling ? Math.sin(ph) : 0.2;
+      a.position.set(a.userData.side * (0.24 + 0.04 * Math.cos(ph) * paddling), -0.2 - 0.07 * Math.max(0, -Math.sin(ph)) * paddling, -0.22);
+      a.rotation.set(-0.35 - reach * 0.55 * paddling, a.userData.side * 0.12, 0);
+      a.visible = facing > 0.2 || paddling > 0;
+    }
+  };
+  camera.add(g);
+  if (!camera.parent) camera.userData.needsScene = true;
+  return g;
+}
+
 export class SurfSession {
   constructor({ eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick, training = false }) {
     Object.assign(this, { eco, surfer, camera, input, fx, audio, settings, onEnd, onTrick, training });
@@ -238,8 +264,30 @@ export class SurfSession {
   updateCamera(dt) {
     const p = this.pos;
     let want, look;
-    const fp = !this.thirdPerson && this.state === 'ride';
-    this.surfer.rider.visible = !fp; // first person: you are the rider (the board stays in view at your feet)
+    const fp = !this.thirdPerson && (this.state === 'ride' || this.state === 'paddle' || this.state === 'wait');
+    this.surfer.rider.visible = !fp; // first person: you are the rider (the board stays in view)
+    this.hands ??= makeHands(this.camera);
+    this.hands.visible = fp && this.state !== 'ride';
+    if (fp && this.state !== 'ride') {
+      // Lying on the board: face out to sea while waiting for a set (you have to see it coming),
+      // then turn toward the beach to paddle for it, like a real surfer.
+      const dist = this.wave ? this.pos.z - this.wave.z : 99;
+      const facingShore = this.state === 'paddle' && (this.paddling || dist < 22);
+      this.fpTurn = damp(this.fpTurn ?? 0, facingShore ? 1 : 0, 2.5, dt);
+      const fwd = new THREE.Vector3(Math.cos(this.heading), 0, Math.sin(this.heading));
+      const sea = new THREE.Vector3(0.25, 0, -1).normalize();
+      const dir = sea.clone().lerp(fwd, this.fpTurn).normalize();
+      const bob = Math.sin(this.t * 1.7) * 0.03;
+      want = p.clone().add(new THREE.Vector3(0, 0.55 + bob, 0)).addScaledVector(fwd, -0.15);
+      look = want.clone().addScaledVector(dir, 8).add(new THREE.Vector3(0, -0.9 + (1 - this.fpTurn) * 0.7, 0));
+      this.camPos.lerp(want, 1 - Math.exp(-14 * dt)); this.camLook.lerp(look, 1 - Math.exp(-6 * dt));
+      this.camera.position.copy(this.camPos);
+      const minY = this.waterHeight(this.camPos.x, this.camPos.z, this.t) + 0.3;
+      if (this.camera.position.y < minY) this.camera.position.y = minY;
+      this.camera.lookAt(this.camLook);
+      this.hands.userData.stroke(this.t, this.paddling ? 1 : 0, this.fpTurn);
+      return;
+    }
     if (fp) {
       const R = this.ride;
       const travel = new THREE.Vector3(-Math.cos(R.theta * 0.5), 0, -Math.sin(R.theta * 0.5) * 0.5).normalize();

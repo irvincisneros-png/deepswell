@@ -90,7 +90,9 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
       vec3 d3 = texture2D(uDetail, uv * 0.31 + vec2(uTime * 0.03, -uTime * 0.025)).xyz * 2.0 - 1.0;
       vec3 dn = d1 * 0.55 + d2 * 0.35 + d3 * 0.2;
       float distFade = 1.0 / (1.0 + length(cameraPosition - vWPos) * 0.012);
-      vec3 N = normalize(vN + vec3(dn.x, 0.0, dn.y) * 0.35 * distFade);
+      // Fine ripples: the cosy look keeps more of them, further out (SumbaSurf-like chop).
+      float rip = uStyle > 0.5 ? 0.55 * (1.0 / (1.0 + length(cameraPosition - vWPos) * 0.006)) : 0.35 * distFade;
+      vec3 N = normalize(vN + vec3(dn.x, 0.0, dn.y) * rip);
       bool below = uUnderwater > 0.5;
       if (!below && dot(N, V) < 0.0) N = -N;
       vec3 col; float alpha = 1.0;
@@ -109,7 +111,8 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
         vec3 refl = skyColor(R);
         vec3 body = mix(uShallowTint, uWaterTint, smoothstep(1.0, 9.0, wdepth));
         body = mix(body, uDeepTint, smoothstep(8.0, 40.0, wdepth));
-        if (uStyle > 0.5) { float b = smoothstep(1.0, 9.0, wdepth); b = floor(b * 3.0 + 0.5) / 3.0; body = mix(mix(uShallowTint * 1.1, uWaterTint, b), uDeepTint, step(0.5, smoothstep(8.0, 40.0, wdepth))); }
+        if (uStyle > 0.5) body = mix(mix(uShallowTint * 1.05, uWaterTint, smoothstep(0.5, 10.0, wdepth)), uDeepTint, smoothstep(6.0, 30.0, wdepth));
+        vec3 flatBody = body; // the wave mesh fades into exactly this at its base, so there is no seam
         float sss = pow(max(dot(V, -normalize(uSunDir * vec3(1.0, 0.0, 1.0))) * 0.5 + 0.5, 0.0), 3.0);
         float thick = clamp(vH, 0.0, 1.2);
         ${waveMesh ? `
@@ -125,22 +128,28 @@ function waterMaterial({ detail, depthTex, depthBox, waveMesh }) {
             // Foam drawn up the face as crisp swirling streaks, and a bright band along the lip.
             float sw = fbm(vec2(vWPos.x * 0.32 + sin(vWPos.z * 0.5 + uTime * 0.4) * 0.7, thick * 3.0 - uTime * 0.5));
             foam = max(foam, smoothstep(0.54, 0.57, sw) * smoothstep(0.2, 0.6, thick) * 0.85);
-            foam = max(foam, smoothstep(0.72, 0.8, thick));
+            foam = max(foam, smoothstep(1.02, 1.12, thick)); // white only right at the pitching lip
           }
+          body = mix(flatBody, body, smoothstep(0.02, 0.3, thick));
         ` : `
           body += vec3(0.04, 0.35, 0.3) * sss * thick * 0.6;
         `}
         float diff = max(dot(N, uSunDir), 0.0) * 0.35 + 0.65;
-        col = mix(body * diff, refl * 0.85, fres * ${waveMesh ? '0.75' : '1.0'});
+        col = mix(body * diff, refl * 0.85, fres * ${waveMesh ? '(uStyle > 0.5 ? 0.4 : 0.75)' : '1.0'});
         vec3 H = normalize(V + uSunDir);
-        col += vec3(1.0, 0.95, 0.85) * (uStyle > 0.5 ? step(0.9985, max(dot(N, H), 0.0)) * 1.5 : pow(max(dot(N, H), 0.0), 600.0) * 6.0); // stylised: sparkle dots
+        col += vec3(1.0, 0.95, 0.85) * (uStyle > 0.5 ? pow(max(dot(N, H), 0.0), 900.0) * 9.0 : pow(max(dot(N, H), 0.0), 600.0) * 6.0); // sun glints
+        if (uStyle > 0.5) {
+          // Scattered foam flecks drifting on the surface (fade with distance so the horizon stays clean).
+          float fl = smoothstep(0.6, 0.66, fbm(uv * 0.7 + vec2(uTime * 0.05, uTime * 0.03))) * smoothstep(0.8, 0.86, vnoise(uv * 22.0 + uTime * 0.3));
+          foam = max(foam, fl * 0.75 / (1.0 + length(cameraPosition - vWPos) * 0.03));
+        }
         col = mix(col, vec3(0.95, 0.98, 1.0) * (0.75 + 0.25 * max(dot(vN, uSunDir), 0.0)), foam);
         // Aerial haze
-        float hz = 1.0 - exp(-length(cameraPosition - vWPos) * 0.0016);
+        float hz = 1.0 - exp(-length(cameraPosition - vWPos) * (uStyle > 0.5 ? 0.0032 : 0.0016)); // cosy: softer, hazier horizon
         col = mix(col, skyColor(normalize(vec3(-V.x, 0.02, -V.z))), hz);
         // Clear tropical water: see the reef when looking down into the shallows.
-        alpha = clamp(0.42 + fres * 1.3 + smoothstep(3.0, 26.0, wdepth) * 0.6 + foam + hz, 0.0, 1.0);
-        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(uStyle > 0.5 ? 0.02 : 0.12, uStyle > 0.5 ? 0.15 : 0.45, thick));' : ''}
+        alpha = clamp((uStyle > 0.5 ? 0.6 : 0.42) + fres * 1.3 + smoothstep(3.0, 26.0, wdepth) * 0.6 + foam + hz, 0.0, 1.0);
+        ${waveMesh ? 'alpha = mix(alpha, 1.0, smoothstep(uStyle > 0.5 ? 0.3 : 0.12, uStyle > 0.5 ? 0.85 : 0.45, thick));' : ''}
       } else {
         // Looking up from below: Snell's window shows the sky, outside it total internal reflection.
         vec3 Nb = -N;
@@ -235,10 +244,13 @@ export class WaveMesh {
       const col = wave.column(x, this.col);
       const jitter = col.collapse * Math.sin(x * 0.9 + t * 3.1) * 0.08 * col.H;
       sampleProfile(col.H, col.steep, col.curl, col.collapse, this.s, this.y, this.f, jitter);
+      // Flat ends always reach past the ocean's hole (sized for the full wave), even where this column is small.
+      this.s[0] = Math.min(this.s[0], -wave.H * 5.4); this.s[this.N - 1] = Math.max(this.s[this.N - 1], wave.H * 7.2);
       for (let i = 0; i < this.N; i++) {
         const k = c * this.N + i;
         const z = wave.z + this.s[i];
-        const edge = Math.min(i, this.N - 1 - i) < 1 ? 0 : 1;
+        const ce = Math.min(c, cols - 1 - c) / Math.max(1, cols * 0.06); // fade the wave out over its outer 6% so the sides have no cliff
+        const edge = (Math.min(i, this.N - 1 - i) < 1 ? 0 : 1) * (ce >= 1 ? 1 : ce * ce * (3 - 2 * ce));
         const sw = swellHeight(x, z, t, this.ocean.calm);
         this.pos[k * 3] = x;
         this.pos[k * 3 + 1] = (this.y[i] * edge) + sw;
