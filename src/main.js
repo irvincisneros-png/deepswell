@@ -22,6 +22,7 @@ import { Walker, SWIM_DEPTH } from './land/walker.js';
 import { Fishing } from './fishing/fishing.js';
 import { JetSki } from './fishing/jetski.js';
 import { judge, RULES } from './fishing/catches.js';
+import { loadModelSet } from './world/models.js';
 import { evaluatePhoto, snapshot } from './learn/photo.js';
 import { Panels, esc } from './ui/panels.js';
 import { ECOSYSTEMS, PLANNED, ecoById } from './ecosystems/index.js';
@@ -138,6 +139,11 @@ class Game {
     const bar = $('#load-bar'), msg = $('#load-msg');
     await this.world.load(this.eco, (f, m) => { bar.style.width = `${f * 100}%`; msg.textContent = m; });
     this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco); this.setupShadows();
+    // Hand-shaped characters and jet ski (all looks). The game still runs with the placeholders if this fails.
+    try {
+      const chars = await loadModelSet('assets/models/characters_cosy.glb');
+      this.surfer.useModels(chars); this.jetski.useModels(chars); this.camera.userData.charModels = chars;
+    } catch (e) { console.warn('Character models failed to load; using simple shapes.', e); }
     this.renderer.compile(this.scene, this.camera);
     $('#loading').classList.remove('show');
     this.enterMenu();

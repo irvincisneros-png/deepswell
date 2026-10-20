@@ -10,6 +10,31 @@ export class JetSki {
     scene.add(this.root);
     this.pos = new THREE.Vector3(); this.heading = 0; this.speed = 0; this.lean = 0;
   }
+  /** Replace the placeholder with the Blender jet ski and a seated rider built from the character parts. */
+  useModels(models) {
+    const hull = models.get('jetski'); if (!hull) return;
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55 });
+    const g = new THREE.Group();
+    const add = (name, pos, rot = [0, 0, 0], parent = g) => { const geo = models.get(name); if (!geo) return null; const m = new THREE.Mesh(geo, mat); m.position.set(...pos); m.rotation.set(...rot); m.castShadow = true; parent.add(m); return m; };
+    const hullM = add('jetski', [0, 0, 0]); hullM.scale.set(1.1, 1.45, 1.05); // a real PWC stands ~1.1 m tall
+    // Seated rider (you), leaning forward to the handlebars, in a lifejacket.
+    // The character faces +z but the jet ski's nose is -z: turn the rider round, then lean forward to the bars.
+    const rider = new THREE.Group(); rider.position.set(0, 0.98, 0.3); rider.rotation.set(0.3, Math.PI, 0, 'YXZ'); g.add(rider);
+    add('char_hips', [0, 0, 0], [0, 0, 0], rider); add('char_chest', [0, 0, 0], [0, 0, 0], rider); add('char_vest', [0, 0, 0.005], [0, 0, 0], rider);
+    add('char_head', [0, 0.56, 0], [0.2, 0, 0], rider);
+    for (const s of [-1, 1]) {
+      const sh = new THREE.Group(); sh.position.set(0.2 * s, 0.47, 0); sh.rotation.set(-1.15, 0, s * 0.12); rider.add(sh);
+      add('char_upperarm', [0, 0, 0], [0, 0, 0], sh);
+      const el = new THREE.Group(); el.position.y = -0.3; el.rotation.x = -0.35; sh.add(el); add('char_forearm', [0, 0, 0], [0, 0, 0], el);
+      const hp = new THREE.Group(); hp.position.set(0.11 * s, -0.04, 0); hp.rotation.set(-1.35, 0, s * 0.18); rider.add(hp);
+      add('char_thigh', [0, 0, 0], [0, 0, 0], hp);
+      const kn = new THREE.Group(); kn.position.y = -0.42; kn.rotation.x = 1.45; hp.add(kn); add('char_shin', [0, 0, 0], [0, 0, 0], kn);
+    }
+    this.scene = this.root.parent;
+    const old = this.root; g.visible = old.visible; g.position.copy(old.position); g.quaternion.copy(old.quaternion);
+    old.parent?.add(g); old.parent?.remove(old);
+    this.root = g; this.rider = rider;
+  }
   park(x, z, heading, world, t) { this.pos.set(x, 0, z); this.heading = heading; this.speed = 0; this.root.visible = true; this.place(world, t, 0); }
   update(dt, t, input, world, bounds) {
     const thr = input.down('KeyW', 'ArrowUp') ? 1 : 0, brk = input.down('KeyS', 'ArrowDown') ? 1 : 0;

@@ -13,9 +13,16 @@ function makeHands(camera) {
   const arms = [];
   for (const side of [-1, 1]) {
     const arm = new THREE.Group();
-    const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.3, 4, 10), suit); fore.rotation.x = Math.PI / 2; fore.position.z = -0.2;
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), skin); hand.scale.set(0.9, 0.45, 1.4); hand.position.z = -0.42;
-    arm.add(fore, hand); arm.userData.side = side; g.add(arm); arms.push(arm);
+    const part = camera.userData.charModels?.get('char_forearm');
+    if (part) {
+      // Hand-shaped wetsuit sleeve and hand (palm down, reaching forward).
+      const m = new THREE.Mesh(part, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 }));
+      m.rotation.set(Math.PI / 2, 0, side * 0.2); m.scale.setScalar(1.15); arm.add(m);
+    } else {
+      const fore = new THREE.Mesh(new THREE.CapsuleGeometry(0.036, 0.3, 4, 10), suit); fore.rotation.x = Math.PI / 2; fore.position.z = -0.2;
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 8), skin); hand.scale.set(0.9, 0.45, 1.4); hand.position.z = -0.42;
+      arm.add(fore, hand);
+    } arm.userData.side = side; g.add(arm); arms.push(arm);
   }
   g.userData.stroke = (t, paddling, facing) => {
     for (const a of arms) {

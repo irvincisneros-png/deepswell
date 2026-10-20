@@ -94,6 +94,20 @@ export class Surfer {
     this.pose = 'paddle'; this.t = 0; this.tumble = null;
     this._qs = new THREE.Quaternion();
   }
+  /** Swap the capsule placeholders for the hand-shaped character parts (assets/models/characters_cosy.glb). */
+  useModels(models) {
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 });
+    const swap = (group, name) => {
+      const g = models.get(name); if (!g) return;
+      for (const c of [...group.children]) if (c.isMesh) group.remove(c);
+      const m = new THREE.Mesh(g, mat); m.castShadow = true; group.add(m);
+    };
+    swap(this.pelvis, 'char_hips'); swap(this.spine, 'char_chest'); swap(this.neck, 'char_head');
+    for (const L of [this.front, this.back]) {
+      swap(L.arm.sh, 'char_upperarm'); swap(L.arm.el, 'char_forearm'); swap(L.leg.hp, 'char_thigh'); swap(L.leg.kn, 'char_shin');
+    }
+    this.mats.push(mat);
+  }
   setPose(name) { this.pose = name; }
   update(dt, { paddling = false, lean = 0, pump = 0 } = {}) {
     this.t += dt;

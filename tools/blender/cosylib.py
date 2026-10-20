@@ -31,6 +31,17 @@ def vcolor(obj, fn):
     me.color_attributes.active_color = attr
     me.color_attributes.render_color_index = 0
 
+def vcolor_faces(obj, fn):
+    """Colour per face (face-corner domain, from the face centre): crisp panel and stripe edges."""
+    me = obj.data
+    for a in list(me.color_attributes): me.color_attributes.remove(a)
+    attr = me.color_attributes.new('Col', 'FLOAT_COLOR', 'CORNER')
+    for poly in me.polygons:
+        r, g, b = lin(fn(poly.center, poly.normal))
+        for li in poly.loop_indices: attr.data[li].color = (r, g, b, 1.0)
+    me.color_attributes.active_color = attr
+    me.color_attributes.render_color_index = 0
+
 _mat = None
 def vc_material():
     global _mat
@@ -71,10 +82,16 @@ def bake_ao(obj, strength=None):
     bpy.ops.object.select_all(action='DESELECT'); obj.select_set(True); bpy.context.view_layer.objects.active = obj
     bpy.ops.object.bake(type='AO', target='VERTEX_COLORS')
     col = me.color_attributes['Col']
-    for i in range(len(col.data)):
-        k = 1 - strength * (1 - ao.data[i].color[0])
-        c = col.data[i].color
-        col.data[i].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
+    if col.domain == 'CORNER':
+        for loop in me.loops:
+            k = 1 - strength * (1 - ao.data[loop.vertex_index].color[0])
+            c = col.data[loop.index].color
+            col.data[loop.index].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
+    else:
+        for i in range(len(col.data)):
+            k = 1 - strength * (1 - ao.data[i].color[0])
+            c = col.data[i].color
+            col.data[i].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
     me.color_attributes.remove(me.color_attributes['AO'])
     me.color_attributes.active_color = me.color_attributes['Col']
     bpy.data.objects.remove(ground)
