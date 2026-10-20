@@ -61,7 +61,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; border-radius: 
 #mission-track { max-width: 320px; background: var(--glass); border: 1px solid var(--line); padding: 10px 14px; border-radius: 12px; font-size: 13px; backdrop-filter: blur(6px); }
 #mission-track b { display: block; color: var(--accent); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
 #mission-track .bar { margin: 8px 0 0; height: 4px; }
-.prompt { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); font-size: clamp(15px, 1.8vw, 20px); font-weight: 800; text-align: center; letter-spacing: 0.02em; text-transform: uppercase;
+.prompt { position: absolute; left: 50%; top: 32%; transform: translateX(-50%); font-size: clamp(15px, 1.8vw, 20px); font-weight: 800; text-align: center; letter-spacing: 0.02em; text-transform: uppercase;
   background: rgba(10, 22, 30, 0.72); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; padding: 10px 22px; box-shadow: 0 6px 24px rgba(0,0,0,0.25); backdrop-filter: blur(8px); max-width: min(720px, 80vw); }
 .prompt:empty { display: none; }
 .prompt.hot { color: var(--accent2); animation: pulse 0.6s infinite alternate; }
@@ -243,3 +243,13 @@ body.touch #target-label { font-size: 13px; }
   #surf-hud b { font-size: 20px; }
   .fm-track { height: 120px; }
 }
+
+/* Fishing line-fight meter */
+#fish-hud { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); width: min(360px, 70vw); background: rgba(10, 22, 30, 0.72); border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 10px 14px; backdrop-filter: blur(8px); }
+#fish-hud .fh-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin-top: 4px; }
+#fish-hud .fh-track { position: relative; height: 10px; border-radius: 6px; background: rgba(255,255,255,0.12); overflow: hidden; margin: 3px 0 6px; }
+#fish-hud .fh-track i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--accent); border-radius: 6px; }
+#fish-hud .fh-track i.hot { background: #ff5a4a; }
+#fish-hud .fh-danger { position: absolute; right: 0; top: 0; bottom: 0; width: 20%; background: rgba(255, 90, 74, 0.25); }
+#fish-hud #fh-state { text-align: center; font-weight: 800; letter-spacing: 0.08em; }
+#fish-hud.hidden { display: none; }

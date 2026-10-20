@@ -43,7 +43,7 @@ export class Walker {
     const accel = this.grounded ? 10 : 2;
     this.vel.x = damp(this.vel.x, wish.x * target, accel, dt);
     this.vel.z = damp(this.vel.z, wish.z * target, accel, dt);
-    if (this.grounded && inp.hit('Space') && this.waterDepth < 0.6) { this.vel.y = 4.2; this.grounded = false; }
+    if (this.grounded && !this.noJump && inp.hit('Space') && this.waterDepth < 0.6) { this.vel.y = 4.2; this.grounded = false; }
     this.vel.y -= 9.8 * dt;
 
     // Horizontal move with a slope/step limit: you can't walk straight up cliffs or rock faces.

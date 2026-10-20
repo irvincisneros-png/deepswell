@@ -855,9 +855,149 @@ export const species = [
       'Australian Resuscitation Council / NSW Health – first aid for blue-ringed octopus bites'
     ]
   },
+  // ---------------------------------------------------------------- line fishing (beach, rocks, jet ski)
+  // Teacher note: size/bag limits are in src/fishing/catches.js — check current NSW DPI rules before quoting.
+  {
+    id: 'australiansalmon',
+    habitat: 'fishing',
+    common: 'Australian salmon',
+    sci: 'Arripis trutta',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'Up to about 80 cm, usually 30–60 cm',
+    depth: 'Surf beaches, rocky headlands and estuary mouths',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A fast schooling predator of baitfish along surf beaches — and a favourite sport fish of beach anglers.',
+    interactions: [
+      'Hunts pilchards, anchovies and other small baitfish in the surf',
+      'Eaten by sharks, seals, dolphins and seabirds',
+      'Big schools move along the coast in autumn and winter to spawn'
+    ],
+    didYouKnow: 'Despite the name, Australian salmon are not related to true salmon — early European settlers named them for their shape and fight.',
+    fieldNotes: 'Schools of salmon cruise just behind the breaking waves, and from the beach you can sometimes see them as dark patches in the face of a wave. They are often caught and released, because many people find the dark flesh less tasty; handling them quickly with wet hands gives released fish the best chance.',
+    spot: 'Cast from the beach into the gutter (deeper channel) just behind the breakers.',
+    threats: 'Commercial and recreational fishing pressure on spawning schools.',
+    sources: ['NSW DPI – Australian salmon fact sheet', 'FishBase – Arripis trutta']
+  },
+  {
+    id: 'tailor',
+    habitat: 'fishing',
+    common: 'Tailor',
+    sci: 'Pomatomus saltatrix',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Secondary/tertiary consumer',
+    size: 'Up to about 1 m, usually 30–50 cm',
+    depth: 'Surf beaches, rock platforms and estuaries',
+    status: 'Vulnerable (IUCN, global)',
+    statusCode: 'VU',
+    role: 'A fierce predator with razor-sharp teeth that chops through schools of baitfish at dawn and dusk.',
+    interactions: [
+      'Attacks schools of pilchards and other baitfish, often in a feeding frenzy',
+      'Eaten by sharks, dolphins and larger fish',
+      'Migrates north along the NSW coast to spawn off Fraser Island (K\'gari) in late winter'
+    ],
+    didYouKnow: 'Tailor got their name from their sharp teeth, which snip through fishing line like a tailor\'s scissors.',
+    fieldNotes: 'The same species is called bluefish in the USA. Tailor feed hardest at dawn and dusk and their numbers are watched closely, which is why there is a legal minimum length — it gives each fish a chance to spawn before it can be kept.',
+    spot: 'Fish the beach or rock platform at dawn or dusk when tailor chase baitfish close to shore.',
+    threats: 'Fishing pressure, especially on the spawning migration.',
+    sources: ['NSW DPI – Tailor fact sheet', 'IUCN Red List – Pomatomus saltatrix (Vulnerable)']
+  },
+  {
+    id: 'sandwhiting',
+    habitat: 'fishing',
+    common: 'Sand whiting',
+    sci: 'Sillago ciliata',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'Up to about 50 cm, usually 25–35 cm',
+    depth: 'Sandy beaches, sand flats and estuaries',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A bottom feeder that probes the sand for worms, pipis and small crustaceans in the swash zone.',
+    interactions: [
+      'Digs beach worms, yabbies and small shellfish from the sand',
+      'Eaten by tailor, flathead, seabirds and dolphins',
+      'Shares the shallows with ghost crabs and pipis'
+    ],
+    didYouKnow: 'Whiting feed in water so shallow that their backs sometimes break the surface as they chase worms up the beach.',
+    fieldNotes: 'Sand whiting have a pointed snout made for digging. Anglers catch them with live beach worms and pipis, which links fishing directly to the health of the beach: no worms or pipis, no whiting.',
+    spot: 'Cast a short distance into the shallow gutters along the sandy beach.',
+    threats: 'Loss of beach and estuary habitat; fishing pressure.',
+    sources: ['NSW DPI – Sand whiting fact sheet', 'FishBase – Sillago ciliata']
+  },
+  {
+    id: 'yellowfinbream',
+    habitat: 'fishing',
+    common: 'Yellowfin bream',
+    sci: 'Acanthopagrus australis',
+    group: 'fish',
+    feeding: 'omnivore',
+    trophic: 'Secondary consumer',
+    size: 'Up to about 60 cm, usually 25–35 cm',
+    depth: 'Estuaries, beaches and rocky reefs',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'An adaptable fish of rocks, beaches and estuaries that eats almost anything — the classic NSW angler\'s fish.',
+    interactions: [
+      'Eats crabs, worms, shellfish, small fish and some algae',
+      'Moves from estuaries to surf beaches and rocky headlands to spawn in winter',
+      'Eaten by larger fish, dolphins and seabirds'
+    ],
+    didYouKnow: 'Bream can live for over 20 years, and many start life as males before some change into females.',
+    fieldNotes: 'Bream are wary and smart — big ones are famous for stealing bait without getting hooked. Their yellow pectoral and anal fins give them their name. Releasing undersize bream quickly lets them reach breeding size.',
+    spot: 'Fish the washes beside rocks and the edges of the rock platform.',
+    threats: 'Estuary habitat loss and water pollution; fishing pressure.',
+    sources: ['NSW DPI – Yellowfin bream fact sheet', 'IUCN Red List – Acanthopagrus australis']
+  }
 ];
 
 export const missions = [
+  {
+    id: 'know-your-limits',
+    title: 'Know your limits',
+    brief: 'Grab a rod (R) on the beach, the rock platform or the jet ski and land some fish. For every catch, decide correctly whether you may keep it or must release it under NSW size and bag limits — and remember which species are protected.',
+    goal: { type: 'fishing', count: 3 },
+    hint: 'Check the length against the legal size, count how many of that species you have kept today, and release any blue groper. Releasing a legal fish is always allowed.',
+    questions: [
+      {
+        q: 'Why do many fish have a legal minimum length?',
+        options: [
+          'So that bigger fish can be sold for more money',
+          'So that each fish has a chance to grow and breed at least once before it can be kept',
+          'Because small fish taste bad',
+          'To stop people fishing from the beach'
+        ],
+        answer: 1,
+        explain: 'Minimum lengths are usually set above the size at which a species first breeds, so young fish can spawn and replace themselves before they can be taken. That keeps the population sustainable.'
+      },
+      {
+        q: 'What is a bag limit for?',
+        options: [
+          'The size of bucket you are allowed to use',
+          'The number of rods each person can use',
+          'The maximum number of a species one person may keep in a day, so catches are shared and populations are not overfished',
+          'The weight of bait allowed'
+        ],
+        answer: 2,
+        explain: 'Bag limits cap how many fish of a species each person can keep per day. They spread the catch among many anglers and protect fish populations from too much fishing pressure.'
+      },
+      {
+        q: 'You hook an eastern blue groper from the rocks. What should you do?',
+        options: [
+          'Keep it — it is a big fish',
+          'Keep it only if it is over 30 cm',
+          'Release it carefully and quickly — line fishing for blue groper is banned in NSW',
+          'Give it to a friend to take home'
+        ],
+        answer: 2,
+        explain: 'The eastern blue groper is the NSW state fish emblem and is protected from line fishing. Handle it gently with wet hands, remove the hook if you can and release it straight away.'
+      }
+    ]
+  },
   {
     id: 'beach-to-dune',
     title: 'From the swash to the dunes',

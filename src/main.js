@@ -19,6 +19,9 @@ import { Surfer } from './surf/surfer.js';
 import { SurfSession } from './surf/surfSession.js';
 import { Diver, buoyancyAt, pressureAt } from './dive/diver.js';
 import { Walker, SWIM_DEPTH } from './land/walker.js';
+import { Fishing } from './fishing/fishing.js';
+import { JetSki } from './fishing/jetski.js';
+import { judge, RULES } from './fishing/catches.js';
 import { evaluatePhoto, snapshot } from './learn/photo.js';
 import { Panels, esc } from './ui/panels.js';
 import { ECOSYSTEMS, PLANNED, ecoById } from './ecosystems/index.js';
@@ -57,6 +60,9 @@ class Game {
     this.surfer = new Surfer(this.scene);
     this.diver = new Diver(this.camera, this.input, this.settings);
     this.walker = new Walker(this.camera, this.input, this.settings);
+    if (!this.camera.parent) this.scene.add(this.camera); // rod, paddling arms and held fish are children of the camera
+    this.fishing = new Fishing(this);
+    this.jetski = new JetSki(this.scene);
     this.mode = 'loading';
     this.eco = ecoById(params.get('eco')) ?? ECOSYSTEMS[0];
     this.activeMission = null;
@@ -177,6 +183,7 @@ class Game {
   }
   enterMenu() {
     this.mode = 'menu';
+    this.fishing?.stop();
     document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
     this.setupVehicle();
     this.exitCameraMode();
@@ -229,6 +236,7 @@ class Game {
     this.panels.result(r, () => this.lockSoon(), () => this.startSurf());
   }
   startDive(spawn, breath = 1, wipeout = false, quiet = false) {
+    this.fishing?.stop();
     if (this.surfSession?.hands) this.surfSession.hands.visible = false;
     this.mode = 'dive'; this.modeSince = this.time;
     document.body.classList.remove('land-mode'); $('#prompt').innerHTML = '';
@@ -270,8 +278,11 @@ class Game {
       if (this.panels.isOpen || this.mode === 'loading' || this.mode === 'menu') return;
       const c = e.code;
       if (c === 'KeyP') this.pauseMenu();
+      if (c === 'KeyR' && this.eco.fishing && (this.mode === 'land' || this.mode === 'jetski')) this.toggleRod();
+      if (c === 'KeyE' && this.mode === 'jetski') this.leaveJetski();
       if (!this.firstPerson) return;
       if (c === 'KeyF') this.toggleCamera();
+      if (c === 'KeyG' && this.mode === 'dive') this.tryCull();
       if (c === 'KeyJ') this.panels.journal(this.eco, ECOSYSTEMS, this.progress);
       if (c === 'KeyM') this.openMissions();
       if (c === 'KeyL') this.openLab();
@@ -357,6 +368,8 @@ class Game {
     this.exitCameraMode();
     clearTimeout(this.blackoutTimer); this.blackedOut = false; $('#fx-black').style.opacity = 0;
     this.mode = 'land'; this.modeSince = this.time;
+    this.fishing.stop();
+    if (L.jetski && !this.jetskiPlaced) { this.jetski.park(L.jetski.x, L.jetski.z, L.jetski.heading ?? 0, this.world, this.time); this.jetskiPlaced = true; }
     document.body.classList.add('land-mode'); document.body.classList.remove('sub-mode');
     $('#menu').classList.remove('show'); $('#hud').classList.remove('hidden');
     $('#surf-hud').classList.add('hidden'); $('#dive-hud').classList.remove('hidden');
@@ -406,8 +419,13 @@ class Game {
     this.world.waveMesh.update(null, this.time);
     if (this.boat?.visible) { const b = this.boat; b.position.y = swellHeight(b.position.x, b.position.z, this.time) * 0.8 - 0.1; }
     this.roar = 0;
-    const nearBoard = this.eco.surf && Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z) < 2.6;
-    $('#prompt').innerHTML = nearBoard ? this.hint('Press <kbd>E</kbd> to pick up your board and paddle out') : '';
+    w.noJump = this.fishing.active;
+    if (this.fishing.active) { if (!paused) this.fishing.update(dt, this.time, this.input, this.world, this.camera.position.clone()); }
+    else {
+      const nearBoard = this.eco.surf && Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z) < 2.6;
+      const nearSki = this.jetski.root.visible && this.jetski.pos.distanceTo(new THREE.Vector3(w.pos.x, 0, w.pos.z)) < 3.5;
+      $('#prompt').innerHTML = nearSki ? this.hint('Press <kbd>E</kbd> to ride the jet ski') : nearBoard ? this.hint('Press <kbd>E</kbd> to pick up your board and paddle out') : '';
+    }
     if (this.frame % 5 === 0 && !paused) {
       const hit = this.input.lookActive && !this.cameraMode ? this.world.pick(this.camera.position, w.lookDir, 12) : null;
       const lbl = $('#target-label');
@@ -421,12 +439,122 @@ class Game {
     }
   }
   tryBoardFromBeach() {
+    const w = this.walker;
+    if (this.jetski.root.visible && this.jetski.pos.distanceTo(new THREE.Vector3(w.pos.x, 0, w.pos.z)) < 3.5) { this.startJetski(); return; }
     if (!this.eco.surf) return;
-    const w = this.walker, d = Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z);
+    const d = Math.hypot(w.pos.x - this.boardPos.x, w.pos.z - this.boardPos.z);
     if (d > 2.6) { this.toast(`Your board is on the sand ${Math.round(d)} m away. Walk over to it and press E.`); return; }
     $('#prompt').innerHTML = '';
     this.toast('You wax up, walk in through the shorebreak and paddle out to the lineup…');
     this.startSurf();
+  }
+  // ------------------------------------------------------------------ fishing, jet ski and the crown-of-thorns cull
+  /** Which kind of fishing spot the player is at. */
+  fishingSpot() {
+    if (this.mode === 'jetski') return (this.world.surfaceAt(this.jetski.pos.x, this.jetski.pos.z) - this.world.groundAt(this.jetski.pos.x, this.jetski.pos.z)) > 4 ? 'offshore' : 'beach';
+    return this.eco.fishing?.spotAt?.(this.walker.pos.x, this.walker.pos.z) ?? 'beach';
+  }
+  toggleRod() {
+    if (this.mode === 'jetski' && !this.fishing.active && Math.abs(this.jetski.speed) > 0.8) { this.toast('Slow down and stop the jet ski before you fish.'); return; }
+    this.fishing.toggle(this.fishingSpot());
+  }
+  /** A fish is in your hands: decide to keep or release it (NSW rules). */
+  onFishLanded(c, spot, done) {
+    const sp = this.eco.speciesInfo.find(s => s.id === c.id);
+    const name = sp ? sp.common : c.id, rule = RULES[c.id];
+    const today = new Date().toDateString();
+    this.progress.catches ??= [];
+    const keptToday = this.progress.catches.filter(x => x.id === c.id && x.kept && new Date(x.time).toDateString() === today).length;
+    const verdict = judge(c.id, c.length, keptToday);
+    // Log the species in the journal with a photo of the fish in your hands.
+    this.pendingPhoto = { subject: { id: c.id }, quality: 3, behaviours: [], reason: 'Caught on a rod and line.' };
+    const decide = keep => {
+      const correct = keep ? verdict.legal : true;
+      this.progress.catches.push({ eco: this.eco.id, id: c.id, length: c.length, kept: keep, correct, time: Date.now(), spot });
+      this.persist();
+      if (keep && !verdict.legal) { this.toast(`⚠ That fish had to go back: ${verdict.reason}`, 'bad'); this.audio.play('wrong'); }
+      else if (keep) { this.toast(`You kept a ${c.length} cm ${name}. Kept today: ${keptToday + 1}${rule?.bag ? ` of ${rule.bag}` : ''}.`, 'good'); this.audio.play('correct'); }
+      else { this.toast(verdict.legal ? `Released a legal ${name} — catch and release is always allowed.` : `Correct — released. ${verdict.reason}`, 'good'); this.audio.play('correct'); }
+      this.checkMission('fishing');
+      this.panels.close();
+    };
+    this.panels.open(`<h2>${esc(name)} — ${c.length} cm</h2>
+      ${sp ? `<p><i>${esc(sp.sci)}</i> · ${esc(sp.status)}</p>` : ''}
+      <p><b>Rule:</b> ${esc(rule?.note ?? 'No specific limit in this game.')}</p>
+      <p><b>Kept today:</b> ${keptToday}${rule?.bag ? ` of ${rule.bag}` : ''}</p>
+      <p style="color:var(--muted)">Decide: may you keep this fish? (Releasing a legal fish is always allowed.)</p>
+      <p><button class="btn primary" id="fx-keep">Keep it</button> <button class="btn" id="fx-release">Release it</button></p>`, () => done());
+    $('#fx-keep').onclick = () => decide(true);
+    $('#fx-release').onclick = () => decide(false);
+  }
+  startJetski() {
+    this.fishing.stop();
+    this.mode = 'jetski'; this.modeSince = this.time;
+    document.body.classList.add('land-mode');
+    $('#dive-hud').classList.add('hidden'); $('#surf-hud').classList.add('hidden');
+    $('#site-name').textContent = `${this.eco.name} · jet ski`;
+    this.input.wantLock = false; this.input.unlock(); $('#click-to-play').classList.add('hidden');
+    this.jetski.root.visible = true;
+    this.setKeys([['W', 'throttle'], ['S', 'brake / reverse'], ['A/D', 'steer'], ['R', 'fish (stopped)'], ['E', 'get off'], ['P', 'pause']]);
+    this.toast('Lifejacket on. Ride slowly near swimmers and surfers, and stay out of the surf zone. Stop and press R to fish.');
+    this.jsCam = this.camera.position.clone(); this.jsLook = this.jetski.root.position.clone();
+  }
+  updateJetski(dt, paused) {
+    const J = this.jetski;
+    if (!paused) {
+      if (this.fishing.active) {
+        // Fishing from the jet ski: stopped, looking out from the seat; A/D turn to aim the cast.
+        J.speed = THREE.MathUtils.damp(J.speed, 0, 3, dt);
+        this.jsAim = (this.jsAim ?? 0) + ((this.input.down('KeyA', 'ArrowLeft') ? 1 : 0) - (this.input.down('KeyD', 'ArrowRight') ? 1 : 0)) * dt * 1.2;
+        J.place(this.world, this.time, dt);
+        const yaw = -J.heading + this.jsAim;
+        this.camera.position.copy(J.root.position).add(new THREE.Vector3(0, 1.55, 0));
+        this.camera.quaternion.setFromEuler(new THREE.Euler(-0.12, yaw, 0, 'YXZ'));
+        this.fishing.update(dt, this.time, this.input, this.world, this.camera.position.clone());
+        return;
+      }
+      this.jsAim = 0;
+      J.update(dt, this.time, this.input, this.world, this.eco.jetskiBounds ?? this.eco.bounds);
+      if (Math.abs(J.speed) > 4 && Math.random() < dt * 8) this.fx.sprayBurst(J.root.position.clone().add(new THREE.Vector3(0, -0.1, 0)), new THREE.Vector3(Math.cos(J.heading), 0, Math.sin(J.heading)), 4, 1.5);
+    }
+    const want = new THREE.Vector3(), look = new THREE.Vector3();
+    J.cameraTarget(want, look);
+    const h = this.world.surfaceAt(want.x, want.z) + 0.6; if (want.y < h) want.y = h;
+    this.jsCam.lerp(want, 1 - Math.exp(-4 * dt)); this.jsLook.lerp(look, 1 - Math.exp(-6 * dt));
+    this.camera.position.copy(this.jsCam); this.camera.lookAt(this.jsLook);
+    this.world.waveMesh.update(null, this.time);
+    $('#prompt').innerHTML = this.hint(J.shallow ? 'Shallow water — press <kbd>E</kbd> to step off onto the beach' : `${Math.round(Math.abs(J.speed) * 3.6)} km/h · stop and press <kbd>R</kbd> to fish · <kbd>E</kbd> to jump in`);
+  }
+  leaveJetski() {
+    const J = this.jetski;
+    this.fishing.stop(); J.speed = 0;
+    if (J.shallow) {
+      // Wade ashore: step off on the landward side.
+      const p = J.pos.clone().add(new THREE.Vector3(0, 0, 2.5));
+      this.startLand(new THREE.Vector3(p.x, this.world.groundAt(p.x, p.z), p.z), Math.PI, true);
+    } else {
+      this.startDive(new THREE.Vector3(J.pos.x + 1.5, -0.1, J.pos.z), 1, false, true);
+      this.toast('You slipped off the jet ski into the water. Swim back to it and press E at the surface to ride again.');
+    }
+  }
+  /** G while diving: inject a crown-of-thorns starfish within arm's reach (the GBR control-program method). */
+  tryCull() {
+    if (this.eco.id !== 'gbr') return;
+    const d = this.diver, dir = d.lookDir;
+    const target = this.world.life.agents.filter(a => a.id === 'cots' && a.visible !== false && !a.culled)
+      .map(a => ({ a, dist: a.pos.distanceTo(this.camera.position), dot: a.pos.clone().sub(this.camera.position).normalize().dot(dir) }))
+      .filter(x => x.dist < 2.2 && x.dot > 0.75).sort((p, q) => p.dist - q.dist)[0];
+    if (!target) { this.toast('No crown-of-thorns starfish within reach. Get close (arm\'s length) and look right at it, then press G.'); return; }
+    const a = target.a;
+    a.culled = true; this.audio.play('bubbles', { n: 6, base: 700 });
+    this.fx.bubbleBurst(a.pos.clone(), 18, 0.25, 0.04);
+    setTimeout(() => { a.visible = false; this.fx.sandPuff(a.pos.clone(), 10, [0.75, 0.7, 0.8]); }, 1200);
+    this.progress.culls ??= {};
+    const key = `${this.eco.id}:cots`;
+    this.progress.culls[key] = (this.progress.culls[key] ?? 0) + 1;
+    this.persist();
+    this.toast(`Injected — starfish removed (${this.progress.culls[key]} total). That coral can now recover.`, 'good');
+    this.checkMission('cull');
   }
   tryBoard() {
     if (this.eco.vehicle === 'sub') { this.toast('Surfacing the submersible — back to the research ship.'); setTimeout(() => this.enterMenu(), 600); return; }
@@ -438,6 +566,7 @@ class Game {
       this.toast('You climbed aboard the dive boat, rested and slipped back in. (Freedivers rest at the surface for at least twice as long as their dive.)');
       return;
     }
+    if (this.jetski.root.visible && this.diver.depthNow < 0.6 && this.jetski.pos.distanceTo(new THREE.Vector3(this.diver.pos.x, 0, this.diver.pos.z)) < 4) { this.startJetski(); return; }
     const d = Math.hypot(this.diver.pos.x - this.boardPos.x, this.diver.pos.z - this.boardPos.z);
     if (this.diver.depthNow > 0.6) { this.toast(`Surface first. Your board is ${Math.round(d)} m away${this.boardDirection()}.`); return; }
     this.startSurf();
@@ -467,6 +596,8 @@ class Game {
     }
     if (g.type === 'photo-behaviour') return { n: mine.some(e => (e.behaviours ?? []).includes(g.behaviour)) ? 1 : 0, of: 1 };
     if (g.type === 'depth') return { n: Math.min(g.metres, Math.floor(this.diver.maxDepth ?? 0)), of: g.metres };
+    if (g.type === 'fishing') return { n: Math.min(g.count, (this.progress.catches ?? []).filter(c => c.eco === eco.id && c.correct).length), of: g.count };
+    if (g.type === 'cull') return { n: Math.min(g.count, this.progress.culls?.[`${eco.id}:${g.species}`] ?? 0), of: g.count };
     return { n: 0, of: 1 };
   }
   checkMission(type, data) {
@@ -479,7 +610,7 @@ class Game {
     const g = m.goal;
     if (g.type === 'surf-ride' && type === 'surf-ride') met = data.rode && data.score >= (g.minScore ?? 1);
     else if (g.type === 'lab' && type === 'lab') met = data === g.condition;
-    else if (['photo-species', 'photo-behaviour', 'depth'].includes(g.type)) { const p = this.missionProgress(m); met = p.n >= p.of; }
+    else if (['photo-species', 'photo-behaviour', 'depth', 'fishing', 'cull'].includes(g.type)) { const p = this.missionProgress(m); met = p.n >= p.of; }
     if (met) {
       this.progress.missions[key] = { ...st, goalMet: true }; this.persist();
       this.toast(`✅ Objective complete: ${m.title}! Press M to answer the check questions.`, 'good');
@@ -494,8 +625,9 @@ class Game {
     el.classList.remove('hidden');
     const st = this.progress.missions[`${this.eco.id}:${m.id}`] ?? {};
     const p = this.missionProgress(m);
-    const label = st.complete ? 'Complete ✓' : st.goalMet ? (st.attempts ? 'Press M — try the questions again' : 'Press M — check questions') : ['photo-species', 'depth'].includes(m.goal.type) ? `${p.n} / ${p.of}` : m.hint;
-    el.innerHTML = `<b>Mission · ${esc(m.title)}</b>${esc(label)}${['photo-species', 'depth'].includes(m.goal.type) && !st.goalMet ? `<div class="bar"><i style="width:${(p.n / p.of) * 100}%"></i></div>` : ''}`;
+    const counted = ['photo-species', 'depth', 'fishing', 'cull'].includes(m.goal.type);
+    const label = st.complete ? 'Complete ✓' : st.goalMet ? (st.attempts ? 'Press M — try the questions again' : 'Press M — check questions') : counted ? `${p.n} / ${p.of}` : m.hint;
+    el.innerHTML = `<b>Mission · ${esc(m.title)}</b>${esc(label)}${counted && !st.goalMet ? `<div class="bar"><i style="width:${(p.n / p.of) * 100}%"></i></div>` : ''}`;
   }
 
   // ------------------------------------------------------------------ camera tool
@@ -603,11 +735,12 @@ class Game {
     globalUniforms.uTime.value = this.time;
     this.world.time = this.time;
     const paused = this.panels.isOpen;
-    this.input.gameplay = !paused && (this.mode === 'surf' || this.firstPerson);
+    this.input.gameplay = !paused && (this.mode === 'surf' || this.mode === 'jetski' || this.firstPerson);
     if (this.mode === 'menu') this.updateMenu(dt);
     else if (this.mode === 'surf' && !paused) this.updateSurf(dt);
     else if (this.mode === 'dive') this.updateDive(dt, paused);
     else if (this.mode === 'land') this.updateLand(dt, paused);
+    else if (this.mode === 'jetski') this.updateJetski(dt, paused);
     if (this.world.land && this.mode !== 'surf') this.world.land.update(dt, this.mode === 'land' ? this.walker : this.mode === 'dive' ? this.diver : null);
     if (this.mode === 'surf' && paused) this.surfSession?.updateCamera(0);
     // Life keeps moving even with panels open.

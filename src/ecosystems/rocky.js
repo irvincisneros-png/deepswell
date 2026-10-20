@@ -219,8 +219,12 @@ export const rocky = {
     intro: 'Beach break on a sandbar. Waves come in sets — watch behind you, then paddle (hold W) when one approaches.' },
   diveSpawn: { x: 0, z: -18 },
   island: { x: 0, z: 560, r: 420, h: 34 }, islandKind: 'headland', // the Illawarra escarpment behind the coastal plain
+  // Rod fishing: rock platform to the east, surf beach elsewhere. Jet ski rides inside the bay.
+  fishing: { spotAt: (x, z) => (platformMask(x, z) > 0.3 ? 'rock' : 'beach') },
+  jetskiBounds: { xMin: -110, xMax: 110, zMin: -120, zMax: 92 },
   land: {
     spawn: { x: 6, z: 106, yaw: 0 },
+    jetski: { x: -8, z: 77, heading: 0 }, // floating just past the shorebreak, nose out to sea
     board: { x: 1.5, z: 97 },
     bounds: { xMin: -165, xMax: 155, zMin: 55, zMax: 194 }, // seaward edge: you start swimming before reaching it
     intro: 'You\'re on the beach at Woonona. Explore the shore: the swash zone, the dunes behind you and the rock platform to the east (right). Walk into the water to swim, or pick up your board (E) to paddle out.',

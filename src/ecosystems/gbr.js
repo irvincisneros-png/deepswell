@@ -113,7 +113,8 @@ export const gbr = {
   life: {
     clownfish: 6, bluetang: 14, moorishidol: 8, cleanerwrasse: 3, parrotfish: 10, humpheadwrasse: 2, coraltrout: 6,
     chromis: 160, trevally: 55, butterflyfish: 12, angelfish: 7, boxfish: 5, reefshark: 3, manta: 1, bluespottedray: 5,
-    turtle: 3, giantclam: 4, cots: 4, seacucumber: 6, anemone: ANEMONES.length,
+    turtle: 3, giantclam: 4, cots: 10, // an outbreak area for the crown-of-thorns control mission
+    seacucumber: 6, anemone: ANEMONES.length,
     ...moreLife,
   },
   lab: {

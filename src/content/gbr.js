@@ -855,6 +855,48 @@ export const species = [
 
 export const missions = [
   {
+    id: 'cots-control',
+    title: 'Crown-of-thorns control',
+    brief: 'A crown-of-thorns starfish outbreak is eating the corals on this reef. Join the control program: find starfish on the coral and inject each one (G) with a single dose of vinegar, the method divers use on the Great Barrier Reef. Remove six to protect the coral.',
+    goal: { type: 'cull', species: 'cots', count: 6 },
+    hint: 'Crown-of-thorns starfish sit on top of table and staghorn corals, often next to a patch of freshly eaten, bright white coral. Get within arm\'s reach, look at the starfish and press G.',
+    questions: [
+      {
+        q: 'Crown-of-thorns starfish are native to the Great Barrier Reef. Why do divers cull them?',
+        options: [
+          'Because they are an invasive species from overseas',
+          'Because during outbreaks their numbers explode and they can eat coral faster than it can regrow',
+          'Because they are poisonous to swimmers',
+          'To sell them'
+        ],
+        answer: 1,
+        explain: 'Crown-of-thorns starfish are native, but outbreaks — linked to extra nutrients from farm run-off that feed their larvae, and to fewer predators — let their numbers explode. Culling protects high-value reefs while outbreaks are underway.'
+      },
+      {
+        q: 'Why do divers inject the starfish instead of cutting them up?',
+        options: [
+          'Cutting is faster',
+          'Starfish can regenerate from pieces, and broken-up starfish could release eggs and sperm — a single injection kills them cleanly',
+          'Injection is cheaper than a knife',
+          'There is no difference'
+        ],
+        answer: 1,
+        explain: 'Cut pieces may regenerate and a damaged female can still spawn millions of eggs. A single injection of vinegar or bile salts kills the starfish without spreading more of them.'
+      },
+      {
+        q: 'Which long-term action best reduces future crown-of-thorns outbreaks?',
+        options: [
+          'Culling every starfish on the whole reef',
+          'Reducing fertiliser and sediment run-off from farms into the reef lagoon',
+          'Adding more starfish predators from overseas',
+          'Banning diving'
+        ],
+        answer: 1,
+        explain: 'Extra nutrients from run-off feed the plankton that crown-of-thorns larvae eat, so more larvae survive. Better water quality tackles a root cause, while culling buys time for important reefs.'
+      }
+    ]
+  },
+  {
     id: 'read-the-waves',
     title: 'Read the waves',
     brief: 'Before we dive, we need to understand the ocean surface. Swell is energy from distant winds travelling across the sea – watch how it changes as it reaches the shallow reef. Catch a wave and see the physics for yourself.',

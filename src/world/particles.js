@@ -78,6 +78,11 @@ export class Particles {
   sandPuff(pos, n = 18, color = [0.9, 0.86, 0.74]) {
     for (let i = 0; i < n; i++) this.dust.spawn(pos.x, pos.y, pos.z, (Math.random() - 0.5) * 0.5, Math.random() * 0.25, (Math.random() - 0.5) * 0.5, 3 + Math.random() * 2, 0.12 + Math.random() * 0.25, color[0], color[1], color[2], 0.5, 2);
   }
+  /** Small splash on the water (a float landing, a hooked fish thrashing). */
+  splash(pos, n = 8) {
+    for (let i = 0; i < n; i++) this.spray.spawn(pos.x + (Math.random() - 0.5) * 0.3, pos.y, pos.z + (Math.random() - 0.5) * 0.3,
+      (Math.random() - 0.5) * 1.2, 1 + Math.random() * 1.6, (Math.random() - 0.5) * 1.2, 0.6 + Math.random() * 0.4, 0.12 + Math.random() * 0.15, 1, 1, 1, 0.8, 3);
+  }
   sprayBurst(pos, dir, n = 30, power = 4) {
     for (let i = 0; i < n; i++) this.spray.spawn(pos.x + (Math.random() - 0.5) * 2, pos.y, pos.z + (Math.random() - 0.5) * 0.6,
       dir.x * power * Math.random() + (Math.random() - 0.5) * 2, 2 + Math.random() * power, dir.z * power * Math.random() + (Math.random() - 0.5) * 1.5,

@@ -17,9 +17,10 @@ python3 devserver.py 8450
 Open http://localhost:8450 (teacher links and QR codes: `/teacher.html`).
 
 ## Controls
-
-- **Surf:** hold W to paddle, Space to pop up, A/D to drop/climb the face, W to pump, S to crouch in the barrel, E to kick out.
-- **Dive:** mouse to look (or drag if mouse capture is blocked), WASD swim, Space/C up/down, Shift strong kicks, Q equalise, F camera, click for info, J journal, M missions, L lab, E board/boat, P pause.
+- **Surf:** W paddle/pump, A/D steer (drop / climb), Space pop up, S crouch, E kick out, V camera. *Surf assist* (Settings, on by default) paddles, pops up and trims for you.
+- **Dive:** mouse look, WASD swim, Space/C up/down, Shift kick hard, Q equalise, F camera, click for cards, J journal, M missions, L lab, E back on the board / boat. G injects a crown-of-thorns starfish (GBR).
+- **Beach (NSW rocky reef):** WASD walk, Shift run, Space jump, E pick up the board or ride the jet ski, R fishing rod (Space to cast, strike and reel).
+- **Jet ski:** W/S throttle and brake, A/D steer, R fish when stopped, E get off.
 
 ## Tests
 

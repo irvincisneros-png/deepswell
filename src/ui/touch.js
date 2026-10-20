@@ -49,7 +49,7 @@ export class TouchControls {
       </div>
       <div class="t-stick t-dive" id="t-stick" aria-label="Swim joystick"><div class="t-knob" id="t-knob"></div></div>
       <div class="t-pad t-dive">
-        <div class="t-row"><button data-key="KeyE" class="t-sm" id="t-board" aria-label="Board or boat">🏄</button><button data-key="KeyF" class="t-sm" aria-label="Camera">📷</button><button data-key="KeyQ" class="t-sm t-free" id="t-eq" aria-label="Equalise ears">EQ</button></div>
+        <div class="t-row"><button data-key="KeyE" class="t-sm" id="t-board" aria-label="Board or boat">🏄</button><button data-key="KeyF" class="t-sm" aria-label="Camera">📷</button><button data-key="KeyQ" class="t-sm t-free" id="t-eq" aria-label="Equalise ears">EQ</button><button data-key="KeyR" class="t-sm" aria-label="Fishing rod">🎣</button><button data-key="KeyG" class="t-sm" aria-label="Inject crown-of-thorns starfish">💉</button></div>
         <div class="t-row"><button data-key="KeyC" class="t-big" aria-label="Swim down">▼</button><button data-key="Space" class="t-big" aria-label="Swim up">▲</button></div>
       </div>
       <div class="t-steer t-surf">
@@ -57,7 +57,7 @@ export class TouchControls {
         <button data-key="KeyD" class="t-big" aria-label="Steer right / climb to the lip">▶</button>
       </div>
       <div class="t-pad t-surf">
-        <div class="t-row"><button data-key="KeyE" class="t-sm" aria-label="Kick out">KICK OUT</button><button data-key="KeyS" class="t-sm" aria-label="Crouch">CROUCH</button></div>
+        <div class="t-row"><button data-key="KeyE" class="t-sm" aria-label="Kick out / get off">KICK OUT</button><button data-key="KeyS" class="t-sm" aria-label="Crouch / brake">CROUCH</button><button data-key="KeyR" class="t-sm" aria-label="Fishing rod">🎣</button></div>
         <div class="t-row"><button data-key="Space" class="t-big t-pop" aria-label="Pop up">POP<br>UP</button><button data-key="KeyW" class="t-big t-paddle" aria-label="Paddle / pump">PADDLE</button></div>
       </div>
       <div id="t-rotate"><div>↻<br>Turn your phone sideways to play</div></div>`;
@@ -145,7 +145,7 @@ export class TouchControls {
   /** Called every frame: show the right control set and release everything when gameplay stops. */
   update() {
     const g = this.game;
-    const mode = g.panels.isOpen ? 'panel' : g.mode === 'land' ? 'dive' : g.mode; // walking uses the swim controls (stick, look, up = jump)
+    const mode = g.panels.isOpen ? 'panel' : g.mode === 'land' ? 'dive' : g.mode === 'jetski' ? 'surf' : g.mode; // walking uses the swim controls; the jet ski uses the surf ones
     if (mode !== this.mode) {
       this.mode = mode;
       this.root.dataset.mode = mode;
