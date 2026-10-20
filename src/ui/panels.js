@@ -267,6 +267,7 @@ export class Panels {
         <select id="set-q">${Object.entries(TIERS).map(([k, t]) => `<option value="${k}" ${settings.quality === k ? 'selected' : ''}>${t.label}</option>`).join('')}</select></div>
       <div class="settings-row"><span>Graphics style<br><small style="color:var(--muted)">Cosy: soft, colourful, hand-shaped models. Realistic: the original look. Changes reload the site.</small></span>
         <select id="set-style"><option value="stylised" ${settings.style !== 'realistic' ? 'selected' : ''}>Cosy (default)</option><option value="realistic" ${settings.style === 'realistic' ? 'selected' : ''}>Realistic</option></select></div>
+      <div class="settings-row"><span>Surf assist<br><small style="color:var(--muted)">Paddles and pops up for you, and keeps you on the wave. Steer with A/D (or ←/→) any time.</small></span><input id="set-sa" type="checkbox" ${settings.surfAssist !== false ? 'checked' : ''}></div>
       <div class="settings-row"><span>Mouse sensitivity</span><input id="set-sens" type="range" min="0.3" max="2.5" step="0.1" value="${settings.sensitivity}"></div>
       <div class="settings-row"><span>Invert look up/down</span><input id="set-inv" type="checkbox" ${settings.invertY ? 'checked' : ''}></div>
       <div class="settings-row"><span>Volume</span><input id="set-vol" type="range" min="0" max="1" step="0.05" value="${settings.volume}"></div>
@@ -277,6 +278,7 @@ export class Panels {
     const ch = (k, v) => onChange(k, v);
     $('#set-q').onchange = e => ch('quality', e.target.value);
     $('#set-style').onchange = e => ch('style', e.target.value);
+    $('#set-sa').onchange = e => ch('surfAssist', e.target.checked);
     $('#set-sens').oninput = e => ch('sensitivity', +e.target.value);
     $('#set-inv').onchange = e => ch('invertY', e.target.checked);
     $('#set-vol').oninput = e => ch('volume', +e.target.value);

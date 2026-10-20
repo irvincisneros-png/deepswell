@@ -4,6 +4,7 @@ import { makeNoise, smoothstep, lerp, clamp } from '../core/noise.js';
 import { species as speciesInfo, missions } from '../content/gbr.js';
 import { simulate, explain } from '../learn/reefModel.js';
 import { globalUniforms } from '../ocean/shaders.js';
+import { moreLife } from './gbrMore.js';
 
 const noise = makeNoise(42);
 const BOMMIES = [
@@ -91,7 +92,7 @@ export const gbr = {
       leathercoral: ['leather_0', 'leather_1'], softtree: ['softcoral_0', 'softcoral_1'], sponge: ['barrel_0'], seafan: ['seafan_0'],
       rock: ['rock_0', 'rock_1', 'rock_2'],
     },
-    statics: { anemone: 'anemone_0', cots: 'cots_0', seacucumber: 'seacucumber_0' },
+    statics: { anemone: 'anemone_0', cots: 'cots_0', seacucumber: 'seacucumber_0', blueseastar: 'blueseastar_0', xmasworm: 'xmasworm_0' },
   },
   speciesInfo,
   missions,
@@ -110,9 +111,10 @@ export const gbr = {
   ],
   // Creature populations: speciesId -> count (scaled by quality)
   life: {
-    clownfish: 6, bluetang: 9, moorishidol: 6, cleanerwrasse: 3, parrotfish: 7, humpheadwrasse: 2, coraltrout: 6,
-    chromis: 140, trevally: 55, butterflyfish: 8, angelfish: 5, boxfish: 4, reefshark: 3, manta: 1, bluespottedray: 4,
-    turtle: 2, giantclam: 3, cots: 4, seacucumber: 6, anemone: ANEMONES.length,
+    clownfish: 6, bluetang: 14, moorishidol: 8, cleanerwrasse: 3, parrotfish: 10, humpheadwrasse: 2, coraltrout: 6,
+    chromis: 160, trevally: 55, butterflyfish: 12, angelfish: 7, boxfish: 5, reefshark: 3, manta: 1, bluespottedray: 5,
+    turtle: 3, giantclam: 4, cots: 4, seacucumber: 6, anemone: ANEMONES.length,
+    ...moreLife,
   },
   lab: {
     title: 'Reef health lab',

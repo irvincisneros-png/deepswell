@@ -261,3 +261,27 @@ def waratah(name):
     o = join([o] + beads, name)
     vcolor(o, lambda co, n: srgb(0x3a6ae0) if co.z < 0.01 and math.hypot(co.x, co.y) > 0.03 else srgb(0xa8121a))
     return finish(o, name)
+
+def blue_sea_star(name):
+    """Blue sea star (Linckia laevigata): small disc, five long smooth tubular arms, bright blue."""
+    elems = [(Vector((0, 0, 0.015)), 0.035)]
+    for k in range(5):
+        a = k / 5 * math.tau
+        for s in range(1, 12): elems.append((Vector((math.cos(a) * s * 0.012, math.sin(a) * s * 0.012, 0.012)), 0.018 * (1 - 0.35 * s / 11)))
+    o = metaball_mesh(name, elems, resolution=0.006)
+    for v in o.data.vertices: v.co.z = max(v.co.z, 0.0)
+    o.data.update(); budget(o, 1200)
+    vcolor(o, lambda co, n: mix(srgb(0x1a4ad8), srgb(0x5a8aff), smoothstep(0.0, 0.025, co.z)))
+    return finish(o, name)
+
+def christmas_tree_worm(name):
+    """Christmas tree worm (Spirobranchus giganteus): a pair of small spiral crowns, red and orange."""
+    parts = []
+    for x, c in ((-0.013, 0xe8402a), (0.013, 0xff9a2a)):
+        for i in range(7):
+            t = i / 6; r = 0.016 * (1 - 0.8 * t)
+            bpy.ops.mesh.primitive_torus_add(major_radius=r, minor_radius=0.0035, major_segments=12, minor_segments=5, location=(x, 0, 0.006 + t * 0.035))
+            parts.append(bpy.context.active_object)
+    o = join(parts, name)
+    vcolor(o, lambda co, n: srgb(0xe8402a) if co.x < 0 else srgb(0xff9a2a))
+    return finish(o, name, ao=0.3)

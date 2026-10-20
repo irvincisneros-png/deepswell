@@ -64,7 +64,9 @@ export class Particles {
     this.snowP = new Float32Array(n * 3);
     for (let i = 0; i < n * 3; i++) this.snowP[i] = (Math.random() - 0.5) * 30;
     geo.setAttribute('position', new THREE.BufferAttribute(this.snowP, 3));
-    this.snow = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.035, map: softSprite(), transparent: true, depthWrite: false, opacity: 0.55, color: 0xcfe8e0, sizeAttenuation: true }));
+    // Cosy look: motes catch the light a little more, so the water feels full of life.
+    const cosy = globalUniforms.uStyle.value > 0.5;
+    this.snow = new THREE.Points(geo, new THREE.PointsMaterial({ size: cosy ? 0.05 : 0.035, map: softSprite(), transparent: true, depthWrite: false, opacity: cosy ? 0.75 : 0.55, color: cosy ? 0xf2fff8 : 0xcfe8e0, sizeAttenuation: true, blending: cosy ? THREE.AdditiveBlending : THREE.NormalBlending }));
     this.snow.frustumCulled = false;
     scene.add(this.snow);
     this.snowOrigin = new THREE.Vector3();

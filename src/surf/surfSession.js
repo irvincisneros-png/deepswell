@@ -92,6 +92,9 @@ export class SurfSession {
   updatePaddle(dt, time) {
     const inp = this.input;
     this.paddling = inp.down('KeyW', 'ArrowUp');
+    // Surf assist: paddle for you when a set wave is close.
+    const assist = this.settings.surfAssist !== false;
+    if (assist && this.wave) { const s0 = this.pos.z - this.wave.z; const H0 = this.wave.H * this.wave.heightScale(); if (s0 > 0 && s0 < Math.max(18, H0 * 3)) this.paddling = true; }
     if (this.paddling) this.paddleSpeed = Math.min(2.3, this.paddleSpeed + dt * 1.1);
     this.paddleSpeed *= Math.exp(-dt * (this.paddling ? 0.25 : 0.7));
     if (inp.down('KeyA', 'ArrowLeft')) this.heading += dt * 0.9;
@@ -114,6 +117,9 @@ export class SurfSession {
       else if (s < 0 && s > -H * 4) this.prompt = '';
       else if (s > 0 && s < 18) this.prompt = 'Paddle now! (hold W) — match the wave\'s speed';
       else if (s > 0 && s < 45) this.prompt = 'Wave coming — get ready to paddle…';
+      // Surf assist: pop up automatically if you're still lying down a moment into the catch window.
+      this.catchT = catchWindow ? (this.catchT ?? 0) + dt : 0;
+      if (assist && catchWindow && this.paddleSpeed > minSpeed && this.catchT > 0.5) { this.startRide(s, H); return; }
       if (inp.hit('Space')) {
         if (catchWindow && this.paddleSpeed > minSpeed) { this.startRide(s, H); return; }
         if (s > H * 1.3 || !this.wave) this.msg = 'Too early — the wave has to lift your board first.';
@@ -158,9 +164,15 @@ export class SurfSession {
     // Steering: A = drop down the face, D = climb up toward the lip (wave wall on the right of the screen).
     const steer = (inp.down('KeyD', 'ArrowRight') ? 1 : 0) - (inp.down('KeyA', 'ArrowLeft') ? 1 : 0);
     const turnRate = 2.4 * (0.6 + Math.min(1, R.v / 6) * 0.6);
-    R.theta = clamp(R.theta + steer * turnRate * dt, -1.35, 1.35);
-    R.lean = damp(R.lean, steer * 0.6, 6, dt);
-    R.crouch = inp.down('KeyS', 'ArrowDown', 'KeyC');
+    const assist = this.settings.surfAssist !== false;
+    if (assist && steer === 0) {
+      // Surf assist: trim toward the middle of the face, and drop down for speed when the breaking section gets close.
+      const target = clamp((0.5 - R.ft) * 3 - (face.d > -5 ? 0.45 : 0), -0.9, 0.9);
+      R.theta = damp(R.theta, target, 2.2, dt);
+    } else R.theta = clamp(R.theta + steer * turnRate * dt, -1.35, 1.35);
+    R.lean = damp(R.lean, (steer || (assist ? clamp((R.theta - R.lastTheta) * 20, -1, 1) : 0)) * 0.6, 6, dt);
+    R.crouch = inp.down('KeyS', 'ArrowDown', 'KeyC') || (assist && face.curl > 0.45 && face.d > -7 && R.ft > 0.3);
+    if (assist && R.v < 4.5 && R.pumpCD <= 0 && R.time > 0.6) { R.v += 0.6; R.pumpCD = 0.7; R.pumpAnim = 1; } // gentle auto-pump
     this.surfer.setPose(R.crouch ? 'crouch' : 'stand');
     // Forces along the board: gravity on the face, pocket power near the curl, drag.
     const a_g = -G * Math.sin(slope) * Math.sin(R.theta) * 0.75;

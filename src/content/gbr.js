@@ -710,6 +710,146 @@ export const species = [
       'Australian Museum – Sea fans (gorgonians)',
       'AIMS – Coral fact sheets'
     ]
+  },
+  // ---------------------------------------------------------------- added October 2026
+  // Teacher note: statuses for these six were written from general knowledge (Oct 2026) — check the IUCN Red List before quoting.
+  {
+    id: 'fusilier',
+    common: 'Blue-and-yellow fusilier',
+    sci: 'Caesio teres',
+    group: 'fish',
+    feeding: 'planktivore',
+    trophic: 'Primary/secondary consumer',
+    size: 'Up to about 40 cm',
+    depth: '1–50 m, open water above the reef slope',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'Fast schooling plankton-eaters that move energy from open-water plankton onto the reef — and feed reef predators.',
+    interactions: [
+      'Feeds on zooplankton in the water column above the reef',
+      'Eaten by trevally, coral trout, reef sharks and seabirds',
+      'Visits cleaning stations to have parasites removed'
+    ],
+    didYouKnow: 'Fusiliers sleep sheltering in the reef at night and many change to a reddish colour in the dark.',
+    fieldNotes: 'Fusiliers are relatives of snappers but have small, protrusible mouths for picking plankton out of the water. Big schools stream along the reef edge where currents carry plankton past, and their waste and bodies feed the reef. Swimming slowly toward a school often makes it part around you like a curtain.',
+    spot: 'Look up and out from the reef slope: a big school of blue fish with bright yellow backs and tails.',
+    threats: 'Fishing (often caught as bait) and reef degradation.',
+    sources: ['FishBase – Caesio teres', 'Australian Museum – Fusiliers (Caesionidae)']
+  },
+  {
+    id: 'lionfish',
+    common: 'Common lionfish',
+    sci: 'Pterois volitans',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Secondary/tertiary consumer',
+    size: 'Up to about 38 cm',
+    depth: '1–50 m, caves, overhangs and coral heads',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'A slow, well-camouflaged ambush predator of small fish and shrimps — native here on the Great Barrier Reef.',
+    interactions: [
+      'Herds small fish into corners with its huge fan-like pectoral fins, then swallows them whole',
+      'Its long dorsal spines carry venom that defends it from most predators',
+      'Large groupers and sharks occasionally eat lionfish'
+    ],
+    didYouKnow: 'Lionfish are native to the Indo-Pacific, including Australia — but in the Caribbean and Atlantic, where they were released from aquariums in the 1980s, they became one of the worst invasive species in the sea.',
+    fieldNotes: 'Here on the GBR lionfish are kept in balance by predators, parasites and competitors that evolved with them. In the Atlantic none of those controls exist, so lionfish numbers exploded and they eat huge numbers of small reef fish. That is why divers there spear lionfish to protect reefs — a good example of why a species can be harmless in one place and invasive in another.',
+    spot: 'Look under ledges and around coral heads for a striped fish hovering almost still, fins spread like feathers. Look, don\'t touch — the spines are venomous.',
+    threats: 'Not threatened in its native range; collected for the aquarium trade.',
+    sources: ['IUCN Red List – Pterois volitans (Least Concern)', 'NOAA – Lionfish invasion of the Atlantic', 'Australian Museum – Lionfishes']
+  },
+  {
+    id: 'giantmoray',
+    common: 'Giant moray',
+    sci: 'Gymnothorax javanicus',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Tertiary consumer',
+    size: 'Up to about 3 m',
+    depth: '1–50 m, crevices and holes in the reef',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'A top reef predator that hunts fish and octopus deep inside the reef where other predators cannot reach.',
+    interactions: [
+      'Hunts at night for fish, octopus and crustaceans inside reef crevices',
+      'Sometimes hunts cooperatively with roving coral groupers, flushing prey out of holes',
+      'Has its mouth cleaned by cleaner wrasse and cleaner shrimps'
+    ],
+    didYouKnow: 'Morays have a second set of jaws in their throat — the "pharyngeal jaws" shoot forward to grab prey and drag it down.',
+    fieldNotes: 'A moray opening and closing its mouth looks threatening, but it is simply pumping water over its gills to breathe. Morays have poor eyesight and find prey mostly by smell. Hand-feeding has led to bites, so keep your hands to yourself.',
+    spot: 'Peer into holes and under coral heads for a big yellow-brown head with dark spots, mouth gently opening and closing.',
+    threats: 'Not considered threatened; reef habitat loss affects shelter.',
+    sources: ['FishBase – Gymnothorax javanicus', 'Bshary et al. 2006, PLoS Biology – Interspecific communicative and coordinated hunting between groupers and giant moray eels']
+  },
+  {
+    id: 'tuskfish',
+    common: 'Harlequin tuskfish',
+    sci: 'Choerodon fasciatus',
+    group: 'fish',
+    feeding: 'carnivore',
+    trophic: 'Secondary consumer',
+    size: 'Up to about 30 cm',
+    depth: '1–35 m, reef slopes and lagoons',
+    status: 'Least Concern',
+    statusCode: 'LC',
+    role: 'A wrasse that crushes molluscs, crabs and sea urchins with strong blue "tusk" teeth.',
+    interactions: [
+      'Flips over rubble and crushes hard-shelled prey such as snails, crabs and urchins',
+      'Uses rocks as anvils to smash open shells — one of the few fish known to use tools',
+      'Shelters in reef crevices from larger predators'
+    ],
+    didYouKnow: 'Tuskfish have been filmed carrying shellfish to a favourite rock and bashing them against it until they crack — tool use in a fish!',
+    fieldNotes: 'The bright orange bars edged with blue make this one of the most colourful wrasses on the GBR. Its blue teeth stick out at the front of the jaw like tusks. Each fish patrols a home range on the reef and usually comes back to the same spots.',
+    spot: 'Look for a stocky fish with bold orange and white bars and bright blue teeth, poking around rubble near the reef base.',
+    threats: 'Collected for the aquarium trade; reef degradation.',
+    sources: ['FishBase – Choerodon fasciatus', 'Jones et al. 2011, Coral Reefs – Tool use in the tuskfish Choerodon schoenleinii']
+  },
+  {
+    id: 'blueseastar',
+    common: 'Blue sea star',
+    sci: 'Linckia laevigata',
+    group: 'invertebrate',
+    feeding: 'detritivore',
+    trophic: 'Detritivore',
+    size: 'Up to about 30 cm across',
+    depth: '0–60 m, reef flats and slopes',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A grazer that cleans films of algae and detritus off dead coral and rubble.',
+    interactions: [
+      'Pushes its stomach out over surfaces to digest biofilm and detritus',
+      'Hosts small parasitic snails that live on its arms',
+      'Can regrow lost arms — a whole new star can grow from one arm'
+    ],
+    didYouKnow: 'Its bright blue colour comes from a pigment–protein complex in its skin — and an arm that breaks off can grow into a whole new sea star.',
+    fieldNotes: 'Unlike the crown-of-thorns starfish, the blue sea star does not eat living coral, so it is not a threat to the reef. Its smooth, firm arms have rows of tube feet underneath that it uses to move and to grip the reef.',
+    spot: 'Easy to spot: a bright blue, five-armed sea star lying on rubble or dead coral in the shallows.',
+    threats: 'Collected for the aquarium and souvenir trade.',
+    sources: ['Australian Museum – Blue Sea Star', 'Great Barrier Reef Marine Park Authority – Sea stars']
+  },
+  {
+    id: 'xmasworm',
+    common: 'Christmas tree worm',
+    sci: 'Spirobranchus giganteus',
+    group: 'invertebrate',
+    feeding: 'filter feeder',
+    trophic: 'Primary consumer',
+    size: 'Spirals about 3–4 cm across',
+    depth: '1–30 m, living inside massive corals',
+    status: 'Not Evaluated',
+    statusCode: 'NE',
+    role: 'A tube-dwelling worm that filters plankton from the water with two colourful spiral crowns.',
+    interactions: [
+      'Builds a calcareous tube inside living coral, which grows around it',
+      'Catches plankton and particles with feathery gill-crowns',
+      'Its presence may help protect its host coral from crown-of-thorns starfish'
+    ],
+    didYouKnow: 'Christmas tree worms are so sensitive to shadows and water movement that they vanish into their tubes in a fraction of a second when you swim close.',
+    fieldNotes: 'Each worm has two spiral "trees" — they are its gills and feeding tentacles, not leaves. They come in red, orange, yellow, blue and white, even on the same coral head. Approach slowly and don\'t cast your shadow over them to see them stay out.',
+    spot: 'Look closely at big boulder and brain corals for tiny colourful spirals sticking out in pairs.',
+    threats: 'Coral bleaching and death remove their living homes.',
+    sources: ['Australian Museum – Christmas Tree Worms', 'Smithsonian Ocean – Christmas tree worm']
   }
 ];
 

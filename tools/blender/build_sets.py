@@ -163,6 +163,7 @@ def gbr():
     out.append(fit(anemone('anemone_0', 3), 0.9, 0.3))
     out.append(fit(cots('cots_0', 4), 0.5, 0.1))
     out.append(fit(prickly_redfish('seacucumber_0', 5), 0.56, 0.14))
+    out += [blue_sea_star('blueseastar_0'), christmas_tree_worm('xmasworm_0')]
     return out
 
 # ---------------------------------------------------------------- NSW rocky reef & kelp (Illawarra)

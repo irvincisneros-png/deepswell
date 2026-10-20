@@ -696,6 +696,9 @@ class Game {
 
   updateDive(dt, paused) {
     const d = this.diver;
+    // Your board waits empty at the surface while you dive (the surf camera could re-show the rider on the frame the ride ended).
+    this.surfer.rider.visible = false;
+    if (this.surfSession?.hands) this.surfSession.hands.visible = false;
     const cardOpen = paused && this.panels.body.querySelector('.card-top');
     d.freeze = paused || this.blackedOut;
     if (cardOpen && !this.settings.freezeBreathInCards && d.depthNow > 0.45) d.freeze = false;
@@ -754,6 +757,12 @@ class Game {
     const bu = buoyancyAt(d.depthNow ?? 0);
     if (d.vehicle === 'sub') $('#buoy').textContent = `Water ~${(4 + 8 * Math.exp(-(d.depthNow - 150) / 250)).toFixed(0)} °C · sunlight ${d.depthNow < 200 ? 'faint' : 'none'}`;
     else $('#buoy').textContent = (d.depthNow ?? 0) < 0.45 ? 'At the surface — breathing' : bu > 0.05 ? 'Buoyancy: floating up ↑' : bu < -0.05 ? 'Buoyancy: sinking ↓ (freefall)' : 'Buoyancy: neutral';
+    // At the surface of a surf site: remind how to get back on the board.
+    if (this.eco.surf && (d.depthNow ?? 0) < 0.6 && !this.cameraMode && !paused) {
+      const bd = Math.hypot(d.pos.x - this.boardPos.x, d.pos.z - this.boardPos.z);
+      $('#prompt').innerHTML = this.hint(`Press <kbd>E</kbd> to climb on your board and surf again${bd > 6 ? ` (${Math.round(bd)} m away${this.boardDirection()})` : ''}`);
+      this.surfPromptShown = true;
+    } else if (this.surfPromptShown) { $('#prompt').innerHTML = ''; this.surfPromptShown = false; }
     const eq = $('#eq-prompt');
     eq.classList.toggle('hidden', d.ear < 0.35 && !d.earWarned);
     if (d.earWarned) {

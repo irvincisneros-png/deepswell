@@ -46,6 +46,8 @@ export class Environment {
     this.hemi.color.set(w.hemiSky ?? 0xbfe6ff); this.hemi.groundColor.set(w.hemiGround ?? 0x3a6a70);
     this.envBelow = w.envBelow ?? 0.3;
     this.shaftsOn = w.shafts ?? 1;
+    // Cosy look: sun rays at every sunlit site (softer where the water is green and murky), a bit stronger overall.
+    if (globalUniforms.uStyle.value > 0.5 && (w.sunIntensity ?? 2.6) > 0) this.shaftsOn = Math.max(this.shaftsOn, 0.5) * 1.8;
     this.sun.color.set(w.sunColor ?? 0xfff2dd);
     this.sunBase = this.sun.intensity = w.sunIntensity ?? 2.6;
     this.hemiBase = this.hemi.intensity = w.ambient ?? 1.1;
@@ -114,7 +116,7 @@ export class Environment {
           a *= smoothstep(0.0, 0.45, vUv.y) * smoothstep(1.0, 0.75, vUv.y);
           float dist = length(vW - uCam);
           a *= smoothstep(1.5, 5.0, dist) * (1.0 - smoothstep(18.0, 30.0, dist));
-          gl_FragColor = vec4(vec3(0.75, 0.95, 1.0), a * uOpacity * 0.075);
+          gl_FragColor = vec4(vec3(0.85, 0.97, 1.0), a * uOpacity * 0.075);
         }`,
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     });
