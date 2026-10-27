@@ -17,14 +17,14 @@ let pw;
 for (const c of candidates) { try { pw = require(c); break; } catch { /* next */ } }
 if (!pw) throw new Error('Playwright not found. Set PLAYWRIGHT_PATH to a node_modules/playwright folder.');
 
-export async function launch({ url = process.env.URL ?? 'http://localhost:8450/', query = '', outDir = 'playtest-shots', width = 1280, height = 800, headless = true, mobile = false } = {}) {
+export async function launch({ url = process.env.URL ?? 'http://localhost:8450/', query = '', outDir = 'playtest-shots', width = 1280, height = 800, headless = !process.env.HEADED, mobile = false } = {}) {
   mkdirSync(outDir, { recursive: true });
   const browser = await pw.chromium.launch({ headless, channel: process.env.PW_CHANNEL ?? 'chrome', args: [process.platform === 'darwin' ? '--use-angle=metal' : '--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
   // mobile: emulate a phone held sideways (touch events, coarse pointer, high-DPI screen).
   const page = await browser.newPage(mobile ? { viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 } : { viewport: { width, height } });
   const errors = [];
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  page.on('pageerror', e => errors.push(String(e)));
+  page.on('pageerror', e => errors.push(String(e.stack ?? e)));
   await page.goto(url + (query ? `?${query}` : ''));
   await page.waitForFunction(() => window.__game && window.__game.mode === 'menu', null, { timeout: 120000 });
   let n = 0;

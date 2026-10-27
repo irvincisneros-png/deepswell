@@ -144,7 +144,7 @@ class Game {
       const chars = await loadModelSet('assets/models/characters_cosy.glb');
       this.surfer.useModels(chars); this.jetski.useModels(chars); this.camera.userData.charModels = chars;
     } catch (e) { console.warn('Character models failed to load; using simple shapes.', e); }
-    this.renderer.compile(this.scene, this.camera);
+    await this.warmUp();
     $('#loading').classList.remove('show');
     this.enterMenu();
     const mid = params.get('mission');
@@ -171,16 +171,35 @@ class Game {
     this.updateProgressSummary();
   }
   async switchEco(id) {
-    if (id === this.eco.id) return;
+    if (id === this.eco.id || this.loading) return;
+    this.loading = true; // the frame loop idles while the old site is torn down and the new one built
     this.eco = ecoById(id);
     $('#loading').classList.add('show'); $('#menu').classList.remove('show');
-    this.surfSession = null;
-    await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
-    this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco); this.setupShadows();
+    this.surfSession = null; this.menuWave = null;
+    try {
+      await this.world.load(this.eco, (f, m) => { $('#load-bar').style.width = `${f * 100}%`; $('#load-msg').textContent = m; });
+      this.ensureBoat(); this.resetEcoState(); this.audio.setSite(this.eco); this.setupShadows();
+      await this.warmUp();
+    } finally { this.loading = false; }
     $('#loading').classList.remove('show');
     this.activeMission = null; this.updateMissionHUD();
     this.bindMenu();
     this.enterMenu();
+  }
+  /** Compile every shader the site needs before it is shown. Done all at once with the browser's parallel compiler,
+   *  so the page keeps responding; otherwise Windows (Direct3D) can stall for 20 s on the first frame. Hidden objects
+   *  (culled reef tiles, the jet ski, far animals) are briefly shown so they don't hitch later when they appear. */
+  async warmUp() {
+    $('#load-msg').textContent = 'Warming up the graphics…';
+    const hidden = [];
+    this.scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+    // Compile against the buffer the scene is really drawn into (the post-processing target, linear colour) or the
+    // shader variants won't match and get rebuilt on the first frame anyway.
+    const prev = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this.composer ? this.composer.readBuffer : null);
+    try { await this.renderer.compileAsync(this.scene, this.camera); }
+    catch (e) { console.warn('Shader warm-up failed', e); }
+    finally { for (const o of hidden) o.visible = false; this.renderer.setRenderTarget(prev); }
   }
   updateProgressSummary() {
     const n = Object.keys(this.progress.journal).length;
@@ -734,6 +753,7 @@ class Game {
     }
   }
   loop(fixedDt, skipRender = false) {
+    if (this.loading) { this.clock.getDelta(); return; }
     const raw = fixedDt ?? this.clock.getDelta();
     if (!fixedDt && raw < 0.25 && document.visibilityState === 'visible') this.adapt(raw);
     const dt = fixedDt ?? Math.min(0.05, raw);
